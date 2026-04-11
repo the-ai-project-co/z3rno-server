@@ -1,0 +1,152 @@
+# z3rno-server — local development stack
+#
+# Usage:
+#   cp .env.example .env
+#   docker compose -f docker-compose.dev.yml up
+#
+# What this gives you:
+#   - PostgreSQL 17 with pgvector, pgvectorscale, Apache AGE, pg_cron, pgaudit
+#     pre-installed (ghcr.io/the-ai-project-co/z3rno-postgres:17)
+#   - Valkey 8 for cache, session state, rate limiting, Celery broker
+#   - z3rno-server (FastAPI) bound to localhost:8000
+#   - z3rno-worker (Celery) consuming the same broker
+#
+# All four services live on a dedicated Docker network so they can reach each
+# other by service name (e.g. postgres://valkey:6379) without exposing extra
+# ports to the host.
+
+name: z3rno-dev
+
+services:
+  # --------------------------------------------------------------------------
+  # PostgreSQL 17 + every extension Z3rno needs (pre-built image)
+  # --------------------------------------------------------------------------
+  postgres:
+    image: ghcr.io/the-ai-project-co/z3rno-postgres:17
+    container_name: z3rno-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-z3rno}
+      POSTGRES_USER: ${POSTGRES_USER:-z3rno}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-z3rno_dev_password}
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    ports:
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-z3rno} -d ${POSTGRES_DB:-z3rno}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - z3rno
+
+  # --------------------------------------------------------------------------
+  # Valkey 8 — cache, session state, rate-limit counters, Celery broker
+  # --------------------------------------------------------------------------
+  valkey:
+    image: valkey/valkey:8
+    container_name: z3rno-valkey
+    restart: unless-stopped
+    command: ["valkey-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "${VALKEY_HOST_PORT:-6379}:6379"
+    volumes:
+      - valkey_data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - z3rno
+
+  # --------------------------------------------------------------------------
+  # z3rno-server (FastAPI)
+  #
+  # NOTE: the Dockerfile is a placeholder until Week 3 ships the real server
+  # scaffold. For now the `server` service builds an empty image with uvicorn
+  # installed and exits cleanly if no src/z3rno_server/main.py exists yet.
+  # --------------------------------------------------------------------------
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: z3rno-server
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-z3rno}:${POSTGRES_PASSWORD:-z3rno_dev_password}@postgres:5432/${POSTGRES_DB:-z3rno}
+      REDIS_URL: redis://valkey:6379/0
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      Z3RNO_API_KEY: ${Z3RNO_API_KEY:-z3rno_sk_test_localdev}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:8000}
+    ports:
+      - "${SERVER_HOST_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/v1/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - z3rno
+
+  # --------------------------------------------------------------------------
+  # Celery worker — shares the server image, runs the celery workers command
+  # instead of uvicorn. Consumes tasks from valkey, reads/writes postgres.
+  # --------------------------------------------------------------------------
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: z3rno-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-z3rno}:${POSTGRES_PASSWORD:-z3rno_dev_password}@postgres:5432/${POSTGRES_DB:-z3rno}
+      REDIS_URL: redis://valkey:6379/0
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-4}
+    command: ["sh", "-c", "echo 'worker placeholder — replace with: celery -A z3rno_server.workers.celery_app worker --loglevel=info --concurrency=${CELERY_WORKER_CONCURRENCY:-4}' && tail -f /dev/null"]
+    networks:
+      - z3rno
+
+# -----------------------------------------------------------------------------
+# Named volumes — survive `docker compose down` and container restarts.
+# Removed only by `docker compose down -v` or explicit `docker volume rm`.
+# -----------------------------------------------------------------------------
+volumes:
+  postgres_data:
+    driver: local
+    name: z3rno_postgres_data
+  valkey_data:
+    driver: local
+    name: z3rno_valkey_data
+
+# -----------------------------------------------------------------------------
+# Dedicated network — services reach each other by service name:
+#   - postgres      (DNS → postgres container)
+#   - valkey        (DNS → valkey container)
+#   - server        (DNS → server container)
+#   - worker        (DNS → worker container)
+# -----------------------------------------------------------------------------
+networks:
+  z3rno:
+    driver: bridge
+    name: z3rno_dev_network
