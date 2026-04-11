@@ -23,6 +23,12 @@ services:
   # --------------------------------------------------------------------------
   postgres:
     image: ghcr.io/the-ai-project-co/z3rno-postgres:17
+    # The base image is built linux/amd64-only because pgvectorscale doesn't
+    # publish arm64 binaries in its release zips yet. On Apple Silicon, Docker
+    # pulls and runs the amd64 variant via Rosetta emulation transparently.
+    # When pgvectorscale ships arm64 (or we add a build-from-source fallback
+    # to the postgres-image.yml workflow), this can be removed.
+    platform: linux/amd64
     container_name: z3rno-postgres
     restart: unless-stopped
     environment:
