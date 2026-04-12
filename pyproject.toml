@@ -1,0 +1,103 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "z3rno-server"
+version = "0.0.1"
+description = "FastAPI server for Z3rno: REST API, authentication, rate limiting, and Celery workers."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.11"
+authors = [
+  { name = "The AI Project Co.", email = "engineering@z3rno.dev" },
+]
+
+dependencies = [
+  # Core engine
+  "z3rno-core @ git+https://github.com/the-ai-project-co/z3rno-core.git",
+  # Web framework
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.32.0",
+  "uvloop>=0.21.0; sys_platform != 'win32'",
+  # Validation
+  "pydantic>=2.10.0",
+  "pydantic-settings>=2.6.0",
+  # Redis/Valkey
+  "redis[hiredis]>=5.2.0",
+  # LLM
+  "litellm>=1.55.0",
+  # Logging
+  "structlog>=24.4.0",
+  # Observability
+  "prometheus-fastapi-instrumentator>=7.0.0",
+]
+
+[project.optional-dependencies]
+worker = [
+  "celery[redis]>=5.4.0",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3.0",
+  "pytest-asyncio>=0.24.0",
+  "pytest-cov>=6.0.0",
+  "httpx>=0.27.0",
+  "ruff>=0.8.6",
+  "mypy>=1.13.0",
+  "pre-commit>=4.0.0",
+]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/z3rno_server"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP", "N", "S", "A", "T20", "SIM", "RUF", "PT", "PL", "TRY", "PERF"]
+ignore = ["E501", "S101", "PLR0913", "TRY003"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "S110", "S608", "PLR2004", "S105", "S106"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["z3rno_server", "z3rno_core"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
+mypy_path = "src"
+namespace_packages = true
+explicit_package_bases = true
+files = ["src/z3rno_server", "tests"]
+
+[[tool.mypy.overrides]]
+module = ["litellm", "litellm.*", "pgvector.*", "celery.*", "redis.*", "prometheus_fastapi_instrumentator.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+markers = [
+  "integration: tests that need running services",
+]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
