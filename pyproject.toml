@@ -85,7 +85,7 @@ explicit_package_bases = true
 files = ["src/z3rno_server", "tests"]
 
 [[tool.mypy.overrides]]
-module = ["litellm", "litellm.*", "pgvector.*", "celery.*", "redis.*", "prometheus_fastapi_instrumentator.*"]
+module = ["z3rno_core", "z3rno_core.*", "litellm", "litellm.*", "pgvector.*", "celery.*", "redis.*", "prometheus_fastapi_instrumentator.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
