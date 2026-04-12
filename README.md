@@ -1,28 +1,94 @@
 # z3rno-server
 
-> Self-hostable FastAPI REST server for Z3rno. Imports `z3rno-core` as a library and exposes `/v1/memories/*`, `/v1/audit`, `/v1/sessions/*` endpoints with API-key auth, plan-based rate limiting, and multi-tenant isolation via PostgreSQL RLS.
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![CI](https://github.com/the-ai-project-co/z3rno-server/actions/workflows/ci.yml/badge.svg)](https://github.com/the-ai-project-co/z3rno-server/actions/workflows/ci.yml)
 
-**License:** Apache 2.0
-**Status:** Early development
-**Part of:** [Z3rno](https://github.com/the-ai-project-co) — the database for AI agent memory
+FastAPI REST API server for Z3rno -- wraps z3rno-core engine functions as HTTP endpoints.
 
-## What this is
+## Quickstart
 
-`z3rno-server` is the stateless FastAPI server that fronts the Z3rno memory engine. It handles HTTP request/response, authentication, rate limiting, org-context propagation (for Row-Level Security), Celery task dispatch for async work (embedding generation, decay, summarisation), and observability (OpenTelemetry tracing, Prometheus metrics, structured logging).
-
-All business logic lives here or in `z3rno-core`. The SDKs (`z3rno-sdk-python`, `z3rno-sdk-typescript`) are thin HTTP clients that call this server.
-
-## Running locally
+### Run with Docker Compose
 
 ```bash
+cp .env.example .env   # configure DATABASE_URL, API keys, etc.
 docker compose -f docker-compose.dev.yml up
-# server at http://localhost:8000
-# postgres at localhost:5432
-# valkey at localhost:6379
 ```
 
-## What this is not
+This starts PostgreSQL 17 (with pgvector, Apache AGE), Valkey, the API server on `localhost:8000`, and a Celery worker.
 
-- Not the database (the schema lives in `z3rno-core`).
-- Not an SDK (those are `z3rno-sdk-python`, `z3rno-sdk-typescript`).
-- Not the managed cloud (that is the private `z3rno-cloud` repo, which wraps this server).
+### Store a memory
+
+```bash
+curl -X POST http://localhost:8000/v1/memories \
+  -H "Authorization: Bearer z3rno_sk_test_localdev" \
+  -H "Content-Type: application/json" \
+  -d '{"agent_id": "agent-1", "content": "User prefers dark mode", "memory_type": "semantic"}'
+```
+
+### Recall memories
+
+```bash
+curl -X POST http://localhost:8000/v1/memories/recall \
+  -H "Authorization: Bearer z3rno_sk_test_localdev" \
+  -H "Content-Type: application/json" \
+  -d '{"agent_id": "agent-1", "query": "What does the user prefer?", "top_k": 5}'
+```
+
+### Forget a memory
+
+```bash
+curl -X POST http://localhost:8000/v1/memories/forget \
+  -H "Authorization: Bearer z3rno_sk_test_localdev" \
+  -H "Content-Type: application/json" \
+  -d '{"memory_id": "<memory-uuid>"}'
+```
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/v1/memories` | Store a new memory |
+| POST | `/v1/memories/recall` | Recall memories by semantic query |
+| POST | `/v1/memories/forget` | Soft-delete a memory |
+| GET | `/v1/audit` | Query the audit log |
+| POST | `/v1/sessions` | Start a new session |
+| POST | `/v1/sessions/{id}/end` | End a session |
+| GET | `/v1/sessions/{id}` | Get session state |
+| GET | `/v1/health` | Health check |
+| GET | `/v1/ready` | Readiness check |
+
+## Configuration
+
+All configuration is via environment variables:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection string (asyncpg) | required |
+| `REDIS_URL` | Valkey/Redis URL | `redis://localhost:6379/0` |
+| `Z3RNO_API_KEY` | API key for authentication | required |
+| `EMBEDDING_MODEL` | LiteLLM embedding model name | `text-embedding-3-small` |
+| `OPENAI_API_KEY` | OpenAI API key (for embeddings) | -- |
+| `LOG_LEVEL` | Logging level | `INFO` |
+| `CORS_ORIGINS` | Allowed CORS origins (comma-separated) | -- |
+
+## OpenAPI Documentation
+
+When running locally, interactive API docs are available at:
+
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+
+## Development
+
+```bash
+uv sync --dev
+uv run ruff check .
+uv run mypy .
+uv run pytest
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
+
+## License
+
+Apache 2.0 -- see [LICENSE](LICENSE).
