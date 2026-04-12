@@ -88,6 +88,10 @@ files = ["src/z3rno_server", "tests"]
 module = ["z3rno_core", "z3rno_core.*", "litellm", "litellm.*", "pgvector.*", "celery.*", "redis.*", "prometheus_fastapi_instrumentator.*"]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = ["z3rno_server.workers.*"]
+disallow_untyped_decorators = false
+
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]

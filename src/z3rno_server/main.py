@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from z3rno_server.api.audit import router as audit_router
 from z3rno_server.api.health import router as health_router
 from z3rno_server.api.memories import router as memories_router
+from z3rno_server.api.sessions import router as sessions_router
 from z3rno_server.config import get_settings
 from z3rno_server.middleware.auth import AuthMiddleware
 from z3rno_server.middleware.request_id import RequestIdMiddleware
@@ -41,6 +42,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(memories_router)
     app.include_router(audit_router)
+    app.include_router(sessions_router)
 
     return app
 
