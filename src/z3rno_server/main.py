@@ -9,6 +9,7 @@ from z3rno_server.api.audit import router as audit_router
 from z3rno_server.api.health import router as health_router
 from z3rno_server.api.memories import router as memories_router
 from z3rno_server.config import get_settings
+from z3rno_server.middleware.auth import AuthMiddleware
 from z3rno_server.middleware.request_id import RequestIdMiddleware
 
 
@@ -26,6 +27,7 @@ def create_app() -> FastAPI:
     )
 
     # Middleware (order matters — outermost first)
+    app.add_middleware(AuthMiddleware)
     app.add_middleware(RequestIdMiddleware)
     app.add_middleware(
         CORSMiddleware,
