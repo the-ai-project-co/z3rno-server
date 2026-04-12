@@ -11,6 +11,8 @@ from z3rno_server.api.memories import router as memories_router
 from z3rno_server.api.sessions import router as sessions_router
 from z3rno_server.config import get_settings
 from z3rno_server.middleware.auth import AuthMiddleware
+from z3rno_server.middleware.logging import LoggingMiddleware
+from z3rno_server.middleware.rate_limit import RateLimitMiddleware
 from z3rno_server.middleware.request_id import RequestIdMiddleware
 
 
@@ -27,8 +29,11 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json",
     )
 
-    # Middleware (order matters — outermost first)
+    # Middleware (order matters — outermost first, innermost last)
+    # Chain: request_id -> logging -> auth -> rate_limit -> route
+    app.add_middleware(RateLimitMiddleware)
     app.add_middleware(AuthMiddleware)
+    app.add_middleware(LoggingMiddleware)
     app.add_middleware(RequestIdMiddleware)
     app.add_middleware(
         CORSMiddleware,
