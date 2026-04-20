@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "z3rno-server"
-version = "0.0.1"
+version = "0.1.0"
 description = "FastAPI server for Z3rno: REST API, authentication, rate limiting, and Celery workers."
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -15,7 +15,7 @@ authors = [
 
 dependencies = [
   # Core engine
-  "z3rno-core>=0.1.1",
+  "z3rno-core>=0.1.2",
   # Web framework
   "fastapi>=0.115.0",
   "uvicorn[standard]>=0.32.0",
