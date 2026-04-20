@@ -23,22 +23,35 @@ OTHER_ORG_ID = "00000000-0000-0000-0000-000000000099"
 
 @pytest.fixture
 async def authed_client():
-    """Client with dev auth and mocked DB."""
+    """Client with dev auth, mocked DB, and mocked rate limiter."""
 
     async def _mock_get_db():
+        conn = AsyncMock()
+        conn.execute = AsyncMock(return_value=MagicMock(
+            scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[]))),
+            fetchone=MagicMock(return_value=None),
+            fetchall=MagicMock(return_value=[]),
+            rowcount=0,
+        ))
         session = AsyncMock()
-        session.execute = AsyncMock(return_value=MagicMock(scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[])))))
-        session.connection = MagicMock(return_value=AsyncMock())
+        session.execute = conn.execute
+        session.connection = AsyncMock(return_value=conn)
         yield session
 
     app.dependency_overrides[get_db] = _mock_get_db
     transport = ASGITransport(app=app)
-    async with AsyncClient(
-        transport=transport,
-        base_url="http://test",
-        headers={"X-API-Key": DEV_API_KEY},
-    ) as c:
-        yield c
+    # Patch the rate limit check to always allow (avoids Redis dependency)
+    with patch(
+        "z3rno_server.middleware.rate_limit._check_rate_limit",
+        new_callable=AsyncMock,
+        return_value=(True, 999, 0),  # (allowed, remaining, reset_at)
+    ):
+        async with AsyncClient(
+            transport=transport,
+            base_url="http://test",
+            headers={"X-API-Key": DEV_API_KEY, "Content-Type": "application/json"},
+        ) as c:
+            yield c
     app.dependency_overrides.clear()
 
 
@@ -172,8 +185,10 @@ class TestAuthEnforcement:
     async def test_missing_auth_returns_401(self, unauthed_client: AsyncClient) -> None:
         """All protected endpoints return 401 without credentials."""
         for method, path in self.PROTECTED_ENDPOINTS:
-            response = await unauthed_client.request(method, path)
-            assert response.status_code == 401, f"{method} {path} did not return 401"
+            # POST endpoints need Content-Type to pass body-limit middleware
+            headers = {"Content-Type": "application/json"} if method == "POST" else {}
+            response = await unauthed_client.request(method, path, headers=headers)
+            assert response.status_code == 401, f"{method} {path} returned {response.status_code}, expected 401"
 
     async def test_invalid_api_key_returns_401(self, unauthed_client: AsyncClient) -> None:
         """Invalid API key returns 401 with error details."""
