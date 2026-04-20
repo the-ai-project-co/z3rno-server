@@ -58,9 +58,13 @@ async def get_db(request: Request) -> AsyncGenerator[AsyncSession, None]:
     """
     factory = _get_session_factory()
     async with factory() as session:
-        # Set RLS context if authenticated
+        # Set RLS context if authenticated:
+        # 1. Switch to the z3rno_app role so RLS policies are enforced
+        #    (the connection pool connects as superuser z3rno which bypasses RLS)
+        # 2. Set the session variable that RLS policies inspect
         org_id = getattr(request.state, "org_id", None)
         if org_id:
+            await session.execute(text("SET LOCAL ROLE z3rno_app"))
             await session.execute(text(f"SET LOCAL app.current_org_id = '{org_id}'"))
         try:
             yield session

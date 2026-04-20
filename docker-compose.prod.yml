@@ -1,0 +1,250 @@
+# z3rno-server — production stack
+#
+# Usage:
+#   cp .env.prod.example .env
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Prerequisites:
+#   - Set all required environment variables (see .env.prod.example)
+#   - Provide TLS certificates or configure cert-manager with Traefik
+#   - Review resource limits for your hardware
+#
+# What this gives you:
+#   - PostgreSQL 17 with pgvector, pgvectorscale, Apache AGE, pg_cron, pgaudit
+#   - Valkey 8 with AOF persistence and password authentication
+#   - z3rno-server (FastAPI) behind Traefik reverse proxy with TLS
+#   - z3rno-worker (Celery) consuming tasks from Valkey
+#   - Traefik for TLS termination and routing
+
+name: z3rno-prod
+
+services:
+  # --------------------------------------------------------------------------
+  # Traefik — TLS termination and reverse proxy
+  #
+  # For production with cert-manager / Let's Encrypt, add:
+  #   --certificatesresolvers.letsencrypt.acme.email=ops@yourdomain.com
+  #   --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+  #   --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+  # And mount a volume for /letsencrypt
+  # --------------------------------------------------------------------------
+  traefik:
+    image: traefik:v3.2
+    container_name: z3rno-traefik
+    restart: unless-stopped
+    command:
+      - "--api.dashboard=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # Redirect HTTP to HTTPS
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+    networks:
+      - z3rno
+
+  # --------------------------------------------------------------------------
+  # PostgreSQL 17 + all Z3rno extensions (pre-built image)
+  #
+  # WAL archiving: For point-in-time recovery in production, configure
+  # archive_mode=on and archive_command to ship WALs to S3/GCS.
+  # Add to POSTGRES_INITDB_ARGS or mount a custom postgresql.conf.
+  # --------------------------------------------------------------------------
+  postgres:
+    image: ghcr.io/the-ai-project-co/z3rno-postgres:17
+    platform: linux/amd64
+    container_name: z3rno-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    networks:
+      - z3rno
+
+  # --------------------------------------------------------------------------
+  # Valkey 8 — cache, session state, rate-limit counters, Celery broker
+  # Password-protected, AOF persistence enabled
+  # --------------------------------------------------------------------------
+  valkey:
+    image: valkey/valkey:8
+    container_name: z3rno-valkey
+    restart: unless-stopped
+    command:
+      - "valkey-server"
+      - "--appendonly"
+      - "yes"
+      - "--maxmemory"
+      - "512mb"
+      - "--maxmemory-policy"
+      - "allkeys-lru"
+      - "--requirepass"
+      - "${VALKEY_PASSWORD:?VALKEY_PASSWORD is required}"
+    volumes:
+      - valkey_data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "-a", "${VALKEY_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 768M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    networks:
+      - z3rno
+
+  # --------------------------------------------------------------------------
+  # z3rno-server (FastAPI) — production mode, no debug, real embedding config
+  # --------------------------------------------------------------------------
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: z3rno-server
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://:${VALKEY_PASSWORD}@valkey:6379/0
+      LOG_LEVEL: ${LOG_LEVEL:-WARNING}
+      LOG_FORMAT: json
+      DEBUG: "false"
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY is required}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
+      Z3RNO_API_KEY: ""
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.z3rno.rule=Host(`${Z3RNO_DOMAIN:-z3rno.localhost}`)"
+      - "traefik.http.routers.z3rno.entrypoints=websecure"
+      - "traefik.http.routers.z3rno.tls=true"
+      - "traefik.http.services.z3rno.loadbalancer.server.port=8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/v1/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    networks:
+      - z3rno
+
+  # --------------------------------------------------------------------------
+  # Celery worker — same image as server, runs celery instead of uvicorn
+  # --------------------------------------------------------------------------
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: z3rno-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://:${VALKEY_PASSWORD}@valkey:6379/0
+      LOG_LEVEL: ${LOG_LEVEL:-WARNING}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY is required}
+      CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-4}
+    command:
+      - "celery"
+      - "-A"
+      - "z3rno_server.workers.celery_app"
+      - "worker"
+      - "--loglevel=warning"
+      - "--concurrency=${CELERY_WORKER_CONCURRENCY:-4}"
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A z3rno_server.workers.celery_app inspect ping --timeout=5 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    networks:
+      - z3rno
+
+# -----------------------------------------------------------------------------
+# Named volumes — survive `docker compose down` and container restarts.
+# Removed only by `docker compose down -v` or explicit `docker volume rm`.
+# -----------------------------------------------------------------------------
+volumes:
+  postgres_data:
+    driver: local
+    name: z3rno_prod_postgres_data
+  valkey_data:
+    driver: local
+    name: z3rno_prod_valkey_data
+
+# -----------------------------------------------------------------------------
+# Dedicated network
+# -----------------------------------------------------------------------------
+networks:
+  z3rno:
+    driver: bridge
+    name: z3rno_prod_network

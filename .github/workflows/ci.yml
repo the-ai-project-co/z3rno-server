@@ -17,6 +17,36 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ['3.11', '3.12']
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: z3rno
+          POSTGRES_PASSWORD: z3rno_dev_password
+          POSTGRES_DB: z3rno
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U z3rno -d z3rno"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      valkey:
+        image: valkey/valkey:8
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "valkey-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://z3rno:z3rno_dev_password@localhost:5432/z3rno
+      REDIS_URL: redis://localhost:6379/0
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4

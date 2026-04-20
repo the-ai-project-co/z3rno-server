@@ -36,6 +36,16 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000,http://localhost:8000"
     api_key_header: str = "X-API-Key"
 
+    # Auth — dev bypass (local development only)
+    z3rno_api_key: str = ""  # If set, this key bypasses DB verification
+    z3rno_dev_org_id: str = ""  # Org ID to use with dev API key
+    api_key_cache_ttl: int = 60  # Valkey cache TTL for verified API keys (seconds)
+
+    # JWT authentication (dashboard users)
+    jwt_secret_key: str = ""  # HMAC secret for JWT signing (required for JWT auth)
+    jwt_algorithm: str = "HS256"
+    jwt_expiry_minutes: int = 60  # Token expiry in minutes
+
     # Rate limiting
     rate_limit_per_minute: int = 60
     rate_limit_burst: int = 10

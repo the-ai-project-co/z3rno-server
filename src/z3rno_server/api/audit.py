@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from z3rno_core.engine import audit
 from z3rno_server.dependencies import DbSession
+from z3rno_server.middleware.rbac import require_role
 from z3rno_server.schemas.audit import AuditEntryResponse, AuditPageResponse, AuditQueryParams
 from z3rno_server.schemas.shared import ErrorResponse
 
@@ -32,6 +33,7 @@ async def query_audit(
     request: Request,
     db: DbSession,
     params: AuditQueryParams = Depends(),  # noqa: B008
+    _rbac: None = require_role("admin", "write", "read"),
 ) -> AuditPageResponse:
     """Query the audit log with filters and pagination."""
     org_id = _get_org_id(request)

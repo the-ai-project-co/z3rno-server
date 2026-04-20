@@ -106,3 +106,53 @@ class ForgetResponse(BaseModel):
     hard_deleted: bool
     cascade_count: int
     memory_ids: list[UUID]
+
+
+# --- Memory History (SCD Type 2) ---
+
+
+class MemoryVersionResponse(BaseModel):
+    """A single temporal version of a memory."""
+
+    id: UUID
+    content: str
+    memory_type: str
+    importance_score: float
+    valid_from: datetime
+    valid_to: datetime | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class MemoryHistoryResponse(BaseModel):
+    """Response for memory history query."""
+
+    memory_id: UUID
+    versions: list[MemoryVersionResponse]
+    total: int
+
+
+# --- Batch Store ---
+
+
+class BatchStoreRequest(BaseModel):
+    """POST /v1/memories/batch - store multiple memories."""
+
+    memories: list[StoreMemoryRequest] = Field(..., min_length=1, max_length=100)
+
+
+class BatchStoreResponse(BaseModel):
+    """Response for batch store operation."""
+
+    results: list[MemoryResponse]
+    stored_count: int
+
+
+# --- Update Memory ---
+
+
+class UpdateMemoryRequest(BaseModel):
+    """PATCH /v1/memories/{id} - update a memory."""
+
+    content: str | None = Field(default=None, min_length=1, max_length=100000)
+    metadata: dict[str, Any] | None = None
+    importance: float | None = Field(default=None, ge=0.0, le=1.0)

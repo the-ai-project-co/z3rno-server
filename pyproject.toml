@@ -25,6 +25,9 @@ dependencies = [
   "pydantic-settings>=2.6.0",
   # Redis/Valkey
   "redis[hiredis]>=5.2.0",
+  # Auth
+  "bcrypt>=4.2.0",
+  "PyJWT[crypto]>=2.9.0",
   # LLM
   "litellm>=1.55.0",
   # Logging
@@ -47,6 +50,7 @@ dev = [
   "ruff>=0.8.6",
   "mypy>=1.13.0",
   "pre-commit>=4.0.0",
+  "locust>=2.30.0",
 ]
 
 [tool.hatch.metadata]
@@ -62,10 +66,12 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "B", "C4", "UP", "N", "S", "A", "T20", "SIM", "RUF", "PT", "PL", "TRY", "PERF"]
-ignore = ["E501", "S101", "PLR0913", "TRY003"]
+ignore = ["E501", "S101", "PLR0913", "TRY003", "PLR0911"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["S101", "S110", "S608", "PLR2004", "S105", "S106"]
+"tests/**/*.py" = ["S101", "S110", "S608", "PLR2004", "S105", "S106", "PLC0415"]
+"src/z3rno_server/workers/**/*.py" = ["PLC0415", "TRY300"]
+"src/z3rno_server/api/worker.py" = ["PLC0415"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["z3rno_server", "z3rno_core"]
@@ -85,7 +91,7 @@ explicit_package_bases = true
 files = ["src/z3rno_server", "tests"]
 
 [[tool.mypy.overrides]]
-module = ["z3rno_core", "z3rno_core.*", "litellm", "litellm.*", "pgvector.*", "celery.*", "redis.*", "prometheus_fastapi_instrumentator.*"]
+module = ["z3rno_core", "z3rno_core.*", "litellm", "litellm.*", "pgvector.*", "celery.*", "redis.*", "prometheus_fastapi_instrumentator.*", "bcrypt", "jwt"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
