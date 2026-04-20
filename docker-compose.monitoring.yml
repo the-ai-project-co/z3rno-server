@@ -1,0 +1,61 @@
+# z3rno-server — Monitoring overlay (Prometheus + Grafana)
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml -f docker-compose.monitoring.yml up
+#
+# This overlay adds:
+#   - Prometheus scraping z3rno-server /metrics every 15s
+#   - Grafana with a pre-configured Prometheus datasource and Z3rno dashboard
+#
+# Grafana is available at http://localhost:3001 (admin / admin)
+# Prometheus is available at http://localhost:9090
+
+services:
+  # --------------------------------------------------------------------------
+  # Prometheus — scrapes z3rno-server /metrics
+  # --------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: z3rno-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "${PROMETHEUS_HOST_PORT:-9090}:9090"
+    networks:
+      - z3rno
+
+  # --------------------------------------------------------------------------
+  # Grafana — dashboards and alerting
+  # --------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: z3rno-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+    ports:
+      - "${GRAFANA_HOST_PORT:-3001}:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - z3rno
+
+volumes:
+  prometheus_data:
+    driver: local
+    name: z3rno_prometheus_data
+  grafana_data:
+    driver: local
+    name: z3rno_grafana_data
