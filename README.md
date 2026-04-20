@@ -46,7 +46,7 @@ curl -X POST http://localhost:8000/v1/memories/forget \
 
 For a detailed step-by-step setup, see [QUICKSTART.md](QUICKSTART.md).
 
-Full documentation: [docs.z3rno.dev](https://docs.z3rno.dev)
+Full documentation: [astron-bb4261fd.mintlify.app](https://astron-bb4261fd.mintlify.app)
 
 ## API Endpoints
 
