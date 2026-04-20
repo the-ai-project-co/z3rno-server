@@ -44,6 +44,10 @@ curl -X POST http://localhost:8000/v1/memories/forget \
   -d '{"memory_id": "<memory-uuid>"}'
 ```
 
+For a detailed step-by-step setup, see [QUICKSTART.md](QUICKSTART.md).
+
+Full documentation: [docs.z3rno.dev](https://docs.z3rno.dev)
+
 ## API Endpoints
 
 | Method | Path | Description |
