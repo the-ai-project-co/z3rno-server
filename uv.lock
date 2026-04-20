@@ -3936,8 +3936,8 @@ wheels = [
 
 [[package]]
 name = "z3rno-core"
-version = "0.0.1"
-source = { git = "https://github.com/the-ai-project-co/z3rno-core.git#3eabcec14569c01fee45bcec89575b394d4e3069" }
+version = "0.1.1"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "alembic" },
     { name = "asyncpg" },
@@ -3950,6 +3950,10 @@ dependencies = [
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "structlog" },
     { name = "tenacity" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ad/c8/616993e9b9b16fcb0df1a71f85a1e1f7c13b14d76c75fbca2aff005f9ad0/z3rno_core-0.1.1.tar.gz", hash = "sha256:1c82bcb22df2f42ec1dea0cf47f35d8402e7b4b289fda8cd6a976d86c36d9ed0", size = 96113, upload-time = "2026-04-20T17:19:31.454Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/47/98/d7b1f8d4548e09180297bcadc6c07d4136e581341790a1d10943ad647a27/z3rno_core-0.1.1-py3-none-any.whl", hash = "sha256:e9d0cfcfd09dc0a42ae5bfed96a9ebf5a3914f17e435a7570512a532103085e1", size = 54904, upload-time = "2026-04-20T17:19:30.122Z" },
 ]
 
 [[package]]
@@ -4002,7 +4006,7 @@ requires-dist = [
     { name = "structlog", specifier = ">=24.4.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32.0" },
     { name = "uvloop", marker = "sys_platform != 'win32'", specifier = ">=0.21.0" },
-    { name = "z3rno-core", git = "https://github.com/the-ai-project-co/z3rno-core.git" },
+    { name = "z3rno-core", specifier = ">=0.1.1" },
 ]
 provides-extras = ["worker"]
 

@@ -15,7 +15,7 @@ authors = [
 
 dependencies = [
   # Core engine
-  "z3rno-core @ git+https://github.com/the-ai-project-co/z3rno-core.git",
+  "z3rno-core>=0.1.1",
   # Web framework
   "fastapi>=0.115.0",
   "uvicorn[standard]>=0.32.0",
