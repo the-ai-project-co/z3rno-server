@@ -48,15 +48,15 @@ PUBLIC_PATHS = {
 }
 
 # Module-level Redis client (lazy init)
-_redis: aioredis.Redis | None = None  # type: ignore[type-arg]
+_redis: aioredis.Redis | None = None
 
 
-def _get_redis() -> aioredis.Redis:  # type: ignore[type-arg]
+def _get_redis() -> aioredis.Redis:
     """Get or create the async Redis client for auth caching."""
     global _redis  # noqa: PLW0603
     if _redis is None:
         settings = get_settings()
-        _redis = aioredis.from_url(settings.redis_url, decode_responses=True)
+        _redis = aioredis.from_url(settings.redis_url, decode_responses=True)  # type: ignore[no-untyped-call]
     return _redis
 
 
@@ -318,5 +318,5 @@ def _extract_api_key(request: Request) -> str | None:
         return key if key else None
 
     # Try X-API-Key header
-    key = request.headers.get("X-API-Key")
-    return key if key else None
+    x_api_key: str | None = request.headers.get("X-API-Key")
+    return x_api_key if x_api_key else None

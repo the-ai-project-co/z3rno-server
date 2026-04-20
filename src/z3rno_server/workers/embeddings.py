@@ -10,9 +10,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from typing import Any
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 from z3rno_server.workers.celery_app import celery_app
 
@@ -24,14 +25,14 @@ DATABASE_URL = os.environ.get(
 )
 
 
-def _get_async_engine():  # type: ignore[no-untyped-def]
+def _get_async_engine() -> AsyncEngine:
     """Create a one-shot async engine for worker tasks."""
     return create_async_engine(DATABASE_URL, pool_size=2, max_overflow=0)
 
 
 @celery_app.task(name="z3rno.generate_embedding", bind=True, max_retries=3)
 def generate_embedding(
-    self,  # type: ignore[no-untyped-def]
+    self: Any,
     memory_id: str,
     content: str,
     model: str,

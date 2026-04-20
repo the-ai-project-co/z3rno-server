@@ -25,15 +25,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/sessions", tags=["sessions"])
 
 # Module-level Redis client (lazy init)
-_redis: aioredis.Redis | None = None  # type: ignore[type-arg]
+_redis: aioredis.Redis | None = None
 
 
-def _get_redis() -> aioredis.Redis:  # type: ignore[type-arg]
+def _get_redis() -> aioredis.Redis:
     """Get or create the async Redis client for sessions."""
     global _redis  # noqa: PLW0603
     if _redis is None:
         settings = get_settings()
-        _redis = aioredis.from_url(settings.redis_url, decode_responses=True)
+        _redis = aioredis.from_url(settings.redis_url, decode_responses=True)  # type: ignore[no-untyped-call]
     return _redis
 
 
@@ -77,7 +77,7 @@ async def start_session(
     try:
         r = _get_redis()
         key = f"session:{session_id}"
-        await r.hset(
+        await r.hset(  # type: ignore[misc]
             key,
             mapping={
                 "agent_id": str(body.agent_id),
@@ -156,7 +156,7 @@ async def get_session(
     """Get the current state of a session from Redis."""
     try:
         r = _get_redis()
-        data = await r.hgetall(f"session:{session_id}")
+        data = await r.hgetall(f"session:{session_id}")  # type: ignore[misc]
         if data:
             metadata = json.loads(data.get("metadata", "{}"))
             return SessionResponse(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from typing import Any
 
 import jwt
 import pytest
@@ -27,12 +28,12 @@ def _make_jwt(
     secret: str = JWT_SECRET,
     algorithm: str = "HS256",
     exp_offset: int = 3600,
-    extra: dict | None = None,
+    extra: dict[str, Any] | None = None,
     omit: list[str] | None = None,
 ) -> str:
     """Create a JWT token for testing."""
     now = int(time.time())
-    payload: dict = {
+    payload: dict[str, Any] = {
         "sub": sub,
         "org_id": org_id,
         "role": role,

@@ -41,15 +41,15 @@ SKIP_PATHS = {"/v1/health", "/v1/ready", "/docs", "/redoc", "/openapi.json"}
 WINDOW_SECONDS = 60
 
 # Module-level Redis client (lazy init)
-_redis: aioredis.Redis | None = None  # type: ignore[type-arg]
+_redis: aioredis.Redis | None = None
 
 
-def _get_redis() -> aioredis.Redis:  # type: ignore[type-arg]
+def _get_redis() -> aioredis.Redis:
     """Get or create the async Redis client for rate limiting."""
     global _redis  # noqa: PLW0603
     if _redis is None:
         settings = get_settings()
-        _redis = aioredis.from_url(settings.redis_url, decode_responses=True)
+        _redis = aioredis.from_url(settings.redis_url, decode_responses=True)  # type: ignore[no-untyped-call]
     return _redis
 
 

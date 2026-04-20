@@ -10,7 +10,7 @@ import asyncio
 import logging
 import os
 
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 from z3rno_server.workers.celery_app import celery_app
 
@@ -22,7 +22,7 @@ DATABASE_URL = os.environ.get(
 )
 
 
-def _get_async_engine():  # type: ignore[no-untyped-def]
+def _get_async_engine() -> AsyncEngine:
     """Create a one-shot async engine for worker tasks."""
     return create_async_engine(DATABASE_URL, pool_size=2, max_overflow=0)
 
