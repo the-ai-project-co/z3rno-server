@@ -127,7 +127,7 @@ async def end_session(
                     WHERE org_id = CAST(:org_id AS uuid)
                       AND memory_type = CAST('working' AS memory_type_enum)
                       AND deleted_at IS NULL
-                      AND memory_metadata @> CAST(:session_filter AS jsonb)
+                      AND metadata @> CAST(:session_filter AS jsonb)
                 """),
                 {
                     "org_id": str(org_id),
