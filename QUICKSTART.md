@@ -42,7 +42,11 @@ This starts four services:
 - **z3rno-server** (FastAPI) on port 8000
 - **z3rno-worker** (Celery) for background tasks
 
-Wait until you see `Application startup complete` in the logs.
+On first startup, the server automatically:
+- Runs all database migrations (creates tables, indexes, RLS policies)
+- Seeds a development tenant and agent (org_id: `aaaaaaaa-...`, agent_id: `bbbbbbbb-...`)
+
+Wait until you see `z3rno-server: starting uvicorn...` in the logs.
 
 ## Running Locally
 
@@ -70,7 +74,7 @@ curl -X POST http://localhost:8000/v1/memories \
   -H "Authorization: Bearer z3rno_sk_test_localdev" \
   -H "Content-Type: application/json" \
   -d '{
-    "agent_id": "agent-1",
+    "agent_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
     "content": "User prefers dark mode",
     "memory_type": "semantic"
   }'
@@ -81,7 +85,7 @@ Response:
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
-  "agent_id": "agent-1",
+  "agent_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
   "content": "User prefers dark mode",
   "memory_type": "semantic",
   "created_at": "2026-04-20T12:00:00Z"
@@ -95,7 +99,7 @@ curl -X POST http://localhost:8000/v1/memories/recall \
   -H "Authorization: Bearer z3rno_sk_test_localdev" \
   -H "Content-Type: application/json" \
   -d '{
-    "agent_id": "agent-1",
+    "agent_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
     "query": "What does the user prefer?",
     "top_k": 5
   }'

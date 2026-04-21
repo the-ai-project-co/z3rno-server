@@ -93,6 +93,7 @@ services:
       REDIS_URL: redis://valkey:6379/0
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       Z3RNO_API_KEY: ${Z3RNO_API_KEY:-z3rno_sk_test_localdev}
+      Z3RNO_DEV_ORG_ID: ${Z3RNO_DEV_ORG_ID:-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:8000}
