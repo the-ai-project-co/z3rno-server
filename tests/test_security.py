@@ -23,10 +23,10 @@ OTHER_ORG_ID = "00000000-0000-0000-0000-000000000099"
 
 
 @pytest.fixture
-async def authed_client():
+async def authed_client():  # type: ignore[no-untyped-def]
     """Client with dev auth, mocked DB, and mocked rate limiter."""
 
-    async def _mock_get_db():
+    async def _mock_get_db():  # type: ignore[no-untyped-def]
         conn = AsyncMock()
         conn.execute = AsyncMock(
             return_value=MagicMock(
@@ -59,7 +59,7 @@ async def authed_client():
 
 
 @pytest.fixture
-async def unauthed_client():
+async def unauthed_client():  # type: ignore[no-untyped-def]
     """Client without any auth headers."""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
@@ -304,7 +304,7 @@ class TestRateLimiting:
 
         response = _rate_limit_response(limit=500, retry_after=10)
         # Decode the response body
-        body = response.body.decode()
+        body = bytes(response.body).decode()
         assert "rate_limit_exceeded" in body
         assert "Retry after" in body
 
