@@ -24,7 +24,7 @@ make dev-psql                    # Connect to postgres shell
 - `src/z3rno_server/middleware/` — auth.py, rate_limit.py, logging.py, request_id.py, org_context.py
 - `src/z3rno_server/schemas/` — Pydantic request/response models (the API contract for SDKs)
 - `src/z3rno_server/workers/` — Celery tasks: lifecycle.py, embeddings.py, healthcheck.py, celery_app.py
-- `src/z3rno_server/config.py` — pydantic-settings (DATABASE_URL, REDIS_URL, etc.)
+- `src/z3rno_server/config.py` — pydantic-settings (DATABASE_URL, VALKEY_URL, etc.)
 - `src/z3rno_server/dependencies.py` — FastAPI DI: database session with RLS context
 
 ## API Endpoints
@@ -33,7 +33,7 @@ make dev-psql                    # Connect to postgres shell
 - `POST /v1/memories/recall` — Recall by query (calls z3rno_core.engine.recall)
 - `POST /v1/memories/forget` — Forget/delete (calls z3rno_core.engine.forget)
 - `GET /v1/audit` — Query audit log (calls z3rno_core.engine.audit)
-- `POST /v1/sessions` — Start session (Redis-only)
+- `POST /v1/sessions` — Start session (Valkey-only)
 - `POST /v1/sessions/{id}/end` — End session
 - `GET /v1/health` — Liveness probe
 - `GET /v1/ready` — Readiness probe
@@ -51,14 +51,14 @@ RequestId -> Logging -> Auth -> RateLimit -> Route Handler
 - Ruff + mypy for code quality
 - API key auth via Authorization: Bearer or X-API-Key header
 - Public paths skip auth: /v1/health, /v1/ready, /docs, /redoc, /openapi.json, /metrics, /v1/worker/health
-- Sessions are Redis-only (no relational sessions table)
+- Sessions are Valkey-only (no relational sessions table)
 - Celery workers use Valkey as broker and result backend
 - Conventional commits
 
 ## Environment Variables
 
 - `DATABASE_URL` — PostgreSQL connection (asyncpg driver)
-- `REDIS_URL` — Valkey connection
+- `VALKEY_URL` — Valkey connection (falls back to `REDIS_URL` for backward compat)
 - `EMBEDDING_MODEL` — LiteLLM model name (default: text-embedding-3-small)
 - `OPENAI_API_KEY` — For embedding generation
 - `CORS_ORIGINS` — Comma-separated allowed origins

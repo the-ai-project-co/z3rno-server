@@ -69,7 +69,7 @@ All configuration is via environment variables:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `DATABASE_URL` | PostgreSQL connection string (asyncpg) | required |
-| `REDIS_URL` | Valkey/Redis URL | `redis://localhost:6379/0` |
+| `VALKEY_URL` | Valkey URL (falls back to `REDIS_URL`) | `redis://localhost:6379/0` |
 | `Z3RNO_API_KEY` | API key for authentication | required |
 | `EMBEDDING_MODEL` | LiteLLM embedding model name | `text-embedding-3-small` |
 | `OPENAI_API_KEY` | OpenAI API key (for embeddings) | -- |

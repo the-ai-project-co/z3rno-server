@@ -24,8 +24,14 @@ class Settings(BaseSettings):
     database_pool_size: int = 20
     database_max_overflow: int = 10
 
-    # Redis / Valkey
-    redis_url: str = "redis://localhost:6379/0"
+    # Valkey (accepts VALKEY_URL; falls back to REDIS_URL for backward compat)
+    valkey_url: str = ""
+    redis_url: str = "redis://localhost:6379/0"  # backward-compat fallback
+
+    @property
+    def effective_valkey_url(self) -> str:
+        """Return VALKEY_URL if set, otherwise fall back to REDIS_URL."""
+        return self.valkey_url or self.redis_url
 
     # Embedding
     embedding_model: str = "text-embedding-3-small"

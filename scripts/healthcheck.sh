@@ -14,8 +14,8 @@
 #   POSTGRES_PASSWORD   (default: z3rno_dev_password)
 #   POSTGRES_DB         (default: z3rno)
 #   SERVER_URL          (default: http://localhost:8000)
-#   REDIS_HOST          (default: localhost)
-#   REDIS_PORT          (default: 6379)
+#   VALKEY_HOST         (default: localhost)
+#   VALKEY_PORT         (default: 6379)
 #
 # Exit codes:
 #   0 — all checks passed
@@ -33,8 +33,8 @@ POSTGRES_USER="${POSTGRES_USER:-z3rno}"
 POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-z3rno_dev_password}"
 POSTGRES_DB="${POSTGRES_DB:-z3rno}"
 SERVER_URL="${SERVER_URL:-http://localhost:8000}"
-REDIS_HOST="${REDIS_HOST:-localhost}"
-REDIS_PORT="${REDIS_PORT:-6379}"
+VALKEY_HOST="${VALKEY_HOST:-localhost}"
+VALKEY_PORT="${VALKEY_PORT:-6379}"
 
 PASS=0
 FAIL=0
@@ -101,23 +101,23 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 5. Valkey / Redis is reachable
+# 5. Valkey is reachable
 # ---------------------------------------------------------------------------
 echo ""
-echo "=== Valkey / Redis ==="
-if command -v redis-cli > /dev/null 2>&1; then
-  PONG=$(redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" ping 2>/dev/null || echo "")
+echo "=== Valkey ==="
+if command -v valkey-cli > /dev/null 2>&1; then
+  PONG=$(valkey-cli -h "$VALKEY_HOST" -p "$VALKEY_PORT" ping 2>/dev/null || echo "")
   if [ "$PONG" = "PONG" ]; then
-    check_pass "Valkey is reachable at $REDIS_HOST:$REDIS_PORT"
+    check_pass "Valkey is reachable at $VALKEY_HOST:$VALKEY_PORT"
   else
-    check_fail "Valkey did not respond to PING at $REDIS_HOST:$REDIS_PORT"
+    check_fail "Valkey did not respond to PING at $VALKEY_HOST:$VALKEY_PORT"
   fi
-elif command -v valkey-cli > /dev/null 2>&1; then
-  PONG=$(valkey-cli -h "$REDIS_HOST" -p "$REDIS_PORT" ping 2>/dev/null || echo "")
+elif command -v redis-cli > /dev/null 2>&1; then
+  PONG=$(redis-cli -h "$VALKEY_HOST" -p "$VALKEY_PORT" ping 2>/dev/null || echo "")
   if [ "$PONG" = "PONG" ]; then
-    check_pass "Valkey is reachable at $REDIS_HOST:$REDIS_PORT"
+    check_pass "Valkey is reachable at $VALKEY_HOST:$VALKEY_PORT"
   else
-    check_fail "Valkey did not respond to PING at $REDIS_HOST:$REDIS_PORT"
+    check_fail "Valkey did not respond to PING at $VALKEY_HOST:$VALKEY_PORT"
   fi
 else
   check_fail "Neither redis-cli nor valkey-cli found in PATH"

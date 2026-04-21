@@ -47,16 +47,16 @@ PUBLIC_PATHS = {
     "/v1/worker/health",
 }
 
-# Module-level Redis client (lazy init)
+# Module-level Valkey client (lazy init)
 _redis: aioredis.Redis | None = None
 
 
 def _get_redis() -> aioredis.Redis:
-    """Get or create the async Redis client for auth caching."""
+    """Get or create the async Valkey client for auth caching."""
     global _redis  # noqa: PLW0603
     if _redis is None:
         settings = get_settings()
-        _redis = aioredis.from_url(settings.redis_url, decode_responses=True)  # type: ignore[no-untyped-call]
+        _redis = aioredis.from_url(settings.effective_valkey_url, decode_responses=True)  # type: ignore[no-untyped-call]
     return _redis
 
 

@@ -1,6 +1,6 @@
-"""Session endpoints - Redis-only, no relational table.
+"""Session endpoints - Valkey-only, no relational table.
 
-Sessions are stored as Redis hashes at key session:{session_id} with
+Sessions are stored as Valkey hashes at key session:{session_id} with
 a 24h TTL. Memories link to sessions via metadata.session_id.
 """
 
@@ -24,16 +24,16 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/sessions", tags=["sessions"])
 
-# Module-level Redis client (lazy init)
+# Module-level Valkey client (lazy init)
 _redis: aioredis.Redis | None = None
 
 
 def _get_redis() -> aioredis.Redis:
-    """Get or create the async Redis client for sessions."""
+    """Get or create the async Valkey client for sessions."""
     global _redis  # noqa: PLW0603
     if _redis is None:
         settings = get_settings()
-        _redis = aioredis.from_url(settings.redis_url, decode_responses=True)  # type: ignore[no-untyped-call]
+        _redis = aioredis.from_url(settings.effective_valkey_url, decode_responses=True)  # type: ignore[no-untyped-call]
     return _redis
 
 
@@ -70,7 +70,7 @@ async def start_session(
     body: StartSessionRequest,
     _rbac: None = require_role("admin", "write"),
 ) -> SessionResponse:
-    """Start a new session. Stores session state in Redis with 24h TTL."""
+    """Start a new session. Stores session state in Valkey with 24h TTL."""
     session_id = uuid4()
     now = datetime.now().astimezone()
 
@@ -88,7 +88,7 @@ async def start_session(
         )
         await r.expire(key, SESSION_TTL)
     except Exception:
-        logger.warning("Failed to write session to Redis", exc_info=True)
+        logger.warning("Failed to write session to Valkey", exc_info=True)
 
     return SessionResponse(
         session_id=session_id,
@@ -138,12 +138,12 @@ async def end_session(
         except Exception:
             logger.warning("Failed to transition session memories", exc_info=True)
 
-    # Delete the Redis session key
+    # Delete the Valkey session key
     try:
         r = _get_redis()
         await r.delete(f"session:{session_id}")
     except Exception:
-        logger.warning("Failed to delete session from Redis", exc_info=True)
+        logger.warning("Failed to delete session from Valkey", exc_info=True)
 
     return EndSessionResponse(session_id=session_id, transitioned_count=transitioned)
 
@@ -153,7 +153,7 @@ async def get_session(
     session_id: UUID,
     _rbac: None = require_role("admin", "write"),
 ) -> SessionResponse:
-    """Get the current state of a session from Redis."""
+    """Get the current state of a session from Valkey."""
     try:
         r = _get_redis()
         data = await r.hgetall(f"session:{session_id}")  # type: ignore[misc]
@@ -167,6 +167,6 @@ async def get_session(
                 metadata=metadata,
             )
     except Exception:
-        logger.warning("Failed to read session from Redis", exc_info=True)
+        logger.warning("Failed to read session from Valkey", exc_info=True)
 
     raise HTTPException(status_code=404, detail="Session not found")

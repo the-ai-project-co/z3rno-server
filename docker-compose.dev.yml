@@ -90,7 +90,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-z3rno}:${POSTGRES_PASSWORD:-z3rno_dev_password}@postgres:5432/${POSTGRES_DB:-z3rno}
-      REDIS_URL: redis://valkey:6379/0
+      VALKEY_URL: redis://valkey:6379/0
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       Z3RNO_API_KEY: ${Z3RNO_API_KEY:-z3rno_sk_test_localdev}
       Z3RNO_DEV_ORG_ID: ${Z3RNO_DEV_ORG_ID:-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa}
@@ -125,7 +125,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-z3rno}:${POSTGRES_PASSWORD:-z3rno_dev_password}@postgres:5432/${POSTGRES_DB:-z3rno}
-      REDIS_URL: redis://valkey:6379/0
+      VALKEY_URL: redis://valkey:6379/0
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}

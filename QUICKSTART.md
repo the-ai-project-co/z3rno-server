@@ -38,7 +38,7 @@ docker compose -f docker-compose.dev.yml up
 
 This starts four services:
 - **PostgreSQL 17** (pgvector, Apache AGE, pg_cron) on port 5432
-- **Valkey 8** (Redis-compatible) on port 6379
+- **Valkey 8** on port 6379
 - **z3rno-server** (FastAPI) on port 8000
 - **z3rno-worker** (Celery) for background tasks
 
@@ -164,9 +164,9 @@ docker compose -f docker-compose.dev.yml restart server
 ```bash
 uv sync --dev
 export DATABASE_URL="postgresql+asyncpg://z3rno:z3rno_dev_password@localhost:5432/z3rno"
-export REDIS_URL="redis://localhost:6379/0"
+export VALKEY_URL="redis://localhost:6379/0"
 export OPENAI_API_KEY="sk-..."
 uv run uvicorn z3rno_server.main:app --reload --port 8000
 ```
 
-You will need PostgreSQL and Valkey/Redis running separately.
+You will need PostgreSQL and Valkey running separately.
