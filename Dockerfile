@@ -27,7 +27,7 @@ COPY pyproject.toml ./
 COPY src/ src/
 
 # Install dependencies into the system site-packages
-RUN uv pip install --system -e ".[worker]"
+RUN uv pip install --system ".[worker]"
 
 # ---------------------------------------------------------------------------
 # Stage 2: runtime — lean image with only installed packages and source
