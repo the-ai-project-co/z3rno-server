@@ -3936,7 +3936,7 @@ wheels = [
 
 [[package]]
 name = "z3rno-core"
-version = "0.1.2"
+version = "0.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "alembic" },
@@ -3951,14 +3951,14 @@ dependencies = [
     { name = "structlog" },
     { name = "tenacity" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/dc/31/141f2cc92527a8111f092c88b54a00d0cc172c9e3f54ccc09d79a5281597/z3rno_core-0.1.2.tar.gz", hash = "sha256:f3ed5a4954e175e8831d04e8dbfd92548c609906a063f69125303686d44d48ef", size = 96277, upload-time = "2026-04-20T17:40:15.245Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/03/c9/eb7ebb135e193cc99fd30731b4da951043e2ff73beeffbf0a9fff6b8bb2c/z3rno_core-0.2.0.tar.gz", hash = "sha256:7156bd6c17734bc6b01f4dc5b34c086870a3ce78e0c64f7f3b24bee0e46d7d5a", size = 96352, upload-time = "2026-04-21T07:25:06.106Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a2/56/ddd4e0c1cb25a2b1630b7c064b884da33b9e886fe4770a1de75e824f8ddc/z3rno_core-0.1.2-py3-none-any.whl", hash = "sha256:cee594612a6679f2bde58bff07132d2caebdf6ab61699ca9a4c41c91c5d556c6", size = 54985, upload-time = "2026-04-20T17:40:14.166Z" },
+    { url = "https://files.pythonhosted.org/packages/2d/1f/ff33f1ff3e71ea0be12b9d67cb512c9dc4042bd689b1af646f196fb06d3b/z3rno_core-0.2.0-py3-none-any.whl", hash = "sha256:5bf36ca8f4aa1f2b94990f2e1d7d24d387425f0186f21d986c7c1ea1860520a7", size = 55067, upload-time = "2026-04-21T07:25:04.74Z" },
 ]
 
 [[package]]
 name = "z3rno-server"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "bcrypt" },
@@ -4006,7 +4006,7 @@ requires-dist = [
     { name = "structlog", specifier = ">=24.4.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32.0" },
     { name = "uvloop", marker = "sys_platform != 'win32'", specifier = ">=0.21.0" },
-    { name = "z3rno-core", specifier = ">=0.1.2" },
+    { name = "z3rno-core", specifier = ">=0.2.0" },
 ]
 provides-extras = ["worker"]
 

@@ -6,6 +6,7 @@ Part of Week 7 security audit and hardening.
 from __future__ import annotations
 
 import time
+from typing import ClassVar
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -27,12 +28,14 @@ async def authed_client():
 
     async def _mock_get_db():
         conn = AsyncMock()
-        conn.execute = AsyncMock(return_value=MagicMock(
-            scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[]))),
-            fetchone=MagicMock(return_value=None),
-            fetchall=MagicMock(return_value=[]),
-            rowcount=0,
-        ))
+        conn.execute = AsyncMock(
+            return_value=MagicMock(
+                scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[]))),
+                fetchone=MagicMock(return_value=None),
+                fetchall=MagicMock(return_value=[]),
+                rowcount=0,
+            )
+        )
         session = AsyncMock()
         session.execute = conn.execute
         session.connection = AsyncMock(return_value=conn)
@@ -71,7 +74,7 @@ async def unauthed_client():
 class TestSQLInjection:
     """Verify that SQL injection payloads are safely handled via parameterized queries."""
 
-    SQL_PAYLOADS = [
+    SQL_PAYLOADS: ClassVar[list[str]] = [
         "'; DROP TABLE memories; --",
         "' OR '1'='1' --",
         "' UNION SELECT * FROM api_keys --",
@@ -142,9 +145,7 @@ class TestSQLInjection:
 class TestRLSBypass:
     """Verify that org isolation cannot be circumvented via header manipulation."""
 
-    async def test_cannot_inject_org_id_via_custom_header(
-        self, authed_client: AsyncClient
-    ) -> None:
+    async def test_cannot_inject_org_id_via_custom_header(self, authed_client: AsyncClient) -> None:
         """Sending X-Org-Id header should not override authenticated org_id."""
         response = await authed_client.get(
             "/v1/memories",
@@ -154,9 +155,7 @@ class TestRLSBypass:
         # At minimum, the injected header should not cause a 500
         assert response.status_code != 500
 
-    async def test_cannot_set_org_context_via_query_param(
-        self, authed_client: AsyncClient
-    ) -> None:
+    async def test_cannot_set_org_context_via_query_param(self, authed_client: AsyncClient) -> None:
         """Query parameters should not override org scoping."""
         response = await authed_client.get(
             "/v1/memories",
@@ -174,7 +173,7 @@ class TestRLSBypass:
 class TestAuthEnforcement:
     """Verify authentication is enforced on all protected endpoints."""
 
-    PROTECTED_ENDPOINTS = [
+    PROTECTED_ENDPOINTS: ClassVar[list[tuple[str, str]]] = [
         ("GET", "/v1/memories"),
         ("POST", "/v1/memories"),
         ("POST", "/v1/memories/recall"),
@@ -188,7 +187,9 @@ class TestAuthEnforcement:
             # POST endpoints need Content-Type to pass body-limit middleware
             headers = {"Content-Type": "application/json"} if method == "POST" else {}
             response = await unauthed_client.request(method, path, headers=headers)
-            assert response.status_code == 401, f"{method} {path} returned {response.status_code}, expected 401"
+            assert response.status_code == 401, (
+                f"{method} {path} returned {response.status_code}, expected 401"
+            )
 
     async def test_invalid_api_key_returns_401(self, unauthed_client: AsyncClient) -> None:
         """Invalid API key returns 401 with error details."""

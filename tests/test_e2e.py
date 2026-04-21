@@ -7,10 +7,9 @@ requiring a live PostgreSQL/Valkey instance.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -18,7 +17,7 @@ from httpx import ASGITransport, AsyncClient
 from z3rno_server.dependencies import get_db
 from z3rno_server.main import app
 
-from .conftest import DEV_API_KEY, DEV_ORG_ID
+from .conftest import DEV_API_KEY
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -26,7 +25,7 @@ from .conftest import DEV_API_KEY, DEV_ORG_ID
 
 AGENT_ID = uuid4()
 MEMORY_ID = uuid4()
-NOW = datetime.now(tz=timezone.utc)
+NOW = datetime.now(tz=UTC)
 
 
 def _make_store_result() -> MagicMock:
