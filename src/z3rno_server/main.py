@@ -27,7 +27,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Z3rno Memory API",
         description="AI Agent Memory Database — store, recall, forget, audit",
-        version="0.0.1",
+        version="0.3.0",
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
