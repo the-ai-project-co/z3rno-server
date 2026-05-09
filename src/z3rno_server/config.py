@@ -38,6 +38,41 @@ class Settings(BaseSettings):
     embedding_provider: str = "litellm"
     openai_api_key: str = ""
 
+    # =========================================================================
+    # Phase A — Forge pipeline (LLM-driven distillation).
+    # All Phase A surfaces are dormant unless DISTILL_ENABLED=true.
+    # When false, /v1/distill is not registered, no Celery task is enqueued,
+    # and existing endpoints behave byte-identically to pre-Phase-A.
+    # =========================================================================
+    distill_enabled: bool = False
+
+    # LLM Gateway — shared by extraction and summarization. Provider-agnostic
+    # via LiteLLM; defaults to OpenAI gpt-4o-mini for cost / latency balance.
+    llm_provider: str = "openai"  # openai | anthropic | gemini | bedrock | ollama
+    llm_model: str = "openai/gpt-4o-mini"
+    llm_api_key: str = ""  # falls back to OPENAI_API_KEY when LLM_PROVIDER=openai
+    llm_timeout_seconds: float = 30.0
+    llm_max_retries: int = 3
+
+    # Structured-output framework selector.
+    # "instructor" is the only supported value in Phase A; "baml" reserved.
+    structured_output_framework: str = "instructor"
+
+    # Forge pipeline tuning.
+    distill_chunk_size: int = 1024  # tokens
+    distill_chunk_overlap: int = 128  # tokens
+    distill_max_concurrency: int = 4  # asyncio.Semaphore for per-job LLM calls
+    distill_summary_style: str = "concise"  # concise | bullet | abstractive
+
+    @property
+    def effective_llm_api_key(self) -> str:
+        """Return LLM_API_KEY if set, otherwise fall back to OPENAI_API_KEY.
+
+        Lets operators reuse a single OPENAI_API_KEY for both embeddings and
+        the Forge LLM Gateway when both target OpenAI.
+        """
+        return self.llm_api_key or self.openai_api_key
+
     # API
     cors_origins: str = "http://localhost:3000,http://localhost:8000"
     api_key_header: str = "X-API-Key"

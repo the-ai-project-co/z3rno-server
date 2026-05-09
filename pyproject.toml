@@ -56,6 +56,13 @@ dev = [
 [tool.hatch.metadata]
 allow-direct-references = true
 
+# Local-development source for the colocated z3rno-core checkout.
+# Production builds resolve z3rno-core from PyPI via the version pin in
+# [project.dependencies]; this override only applies inside `uv sync` runs
+# when the workspace is checked out alongside z3rno-core.
+[tool.uv.sources]
+z3rno-core = { path = "../z3rno-core", editable = true }
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/z3rno_server"]
 

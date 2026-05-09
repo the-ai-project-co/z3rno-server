@@ -56,6 +56,15 @@ def create_app() -> FastAPI:
     app.include_router(api_keys_router)
     app.include_router(worker_router)
 
+    # Phase A — gated. The /v1/distill router is only registered when the
+    # operator opts in via DISTILL_ENABLED=true. With the flag off the
+    # OpenAPI spec is byte-identical to pre-Phase-A and POST /v1/distill
+    # returns a 404 from the FastAPI router (no surface exposed).
+    if settings.distill_enabled:
+        from z3rno_server.api.distill import router as distill_router  # noqa: PLC0415
+
+        app.include_router(distill_router)
+
     # Prometheus metrics — auto-instruments all endpoints with request count,
     # latency histograms, and error rates. Exposed at GET /metrics.
     Instrumentator().instrument(app).expose(app, endpoint="/metrics")

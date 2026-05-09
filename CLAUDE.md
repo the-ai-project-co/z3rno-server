@@ -40,6 +40,15 @@ make dev-psql                    # Connect to postgres shell
 - `GET /v1/worker/health` — Celery worker healthcheck (public, no auth)
 - `GET /metrics` — Prometheus metrics (public, no auth)
 
+### Phase A — Forge (registered only when `DISTILL_ENABLED=true`)
+
+- `POST /v1/distill` — Enqueue a Forge distillation job (returns `202 Accepted` + `job_id`); RBAC: admin/write
+- `GET /v1/distill/{job_id}` — Poll job status (RLS-isolated by org_id); RBAC: admin/write/read
+
+The Celery task `z3rno.forge_distill` runs the pipeline asynchronously. With `DISTILL_ENABLED=false` (default), the routes are not registered and the worker self-rejects messages — OpenAPI is byte-identical to pre-Phase-A.
+
+See `../z3rno-process-docs/improvements/PHASE-A-IMPLEMENTATION.md` for full operator reference.
+
 ## Middleware Chain (order matters)
 
 RequestId -> Logging -> Auth -> RateLimit -> Route Handler
@@ -63,6 +72,19 @@ RequestId -> Logging -> Auth -> RateLimit -> Route Handler
 - `OPENAI_API_KEY` — For embedding generation
 - `CORS_ORIGINS` — Comma-separated allowed origins
 - `LOG_LEVEL` — Structlog level (default: INFO)
+
+### Phase A — Forge (all default to dormant)
+
+- `DISTILL_ENABLED` — Master switch (default: `false`). When `false`, `/v1/distill` is not registered and the Celery task self-rejects.
+- `LLM_PROVIDER` — `openai | anthropic | gemini | bedrock | ollama` (default: `openai`)
+- `LLM_MODEL` — LiteLLM-namespaced model id (default: `openai/gpt-4o-mini`)
+- `LLM_API_KEY` — Falls back to `OPENAI_API_KEY` when provider is `openai`
+- `LLM_TIMEOUT_SECONDS` — Per-call timeout (default: `30.0`)
+- `LLM_MAX_RETRIES` — Tenacity retry budget (default: `3`)
+- `STRUCTURED_OUTPUT_FRAMEWORK` — Only `instructor` supported in Phase A
+- `DISTILL_CHUNK_SIZE` / `DISTILL_CHUNK_OVERLAP` — Token-budget tuning (defaults: `1024` / `128`)
+- `DISTILL_MAX_CONCURRENCY` — Per-job LLM fan-out cap (default: `4`)
+- `DISTILL_SUMMARY_STYLE` — `concise | bullet | abstractive` (default: `concise`)
 
 ## Docker Compose
 
