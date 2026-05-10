@@ -124,6 +124,30 @@ class IngestUploadUrlResponse(BaseModel):
     method: Literal["PUT"] = "PUT"
 
 
+class LoaderDescriptor(BaseModel):
+    """One entry in the ``GET /v1/ingest/loaders`` response."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    mime_types: list[str]
+    extensions: list[str]
+    # ``true`` (string) when this loader handles unmatched content. Mirrors
+    # the dict shape that z3rno_core's LoaderRegistry.describe_loaders
+    # emits — keeps both sides string-typed for JSON cleanliness.
+    is_fallback: str
+
+
+class LoadersResponse(BaseModel):
+    """Body of ``GET /v1/ingest/loaders`` — active loaders + their dispatch."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    multimodal_enabled: bool
+    playwright_enabled: bool
+    loaders: list[LoaderDescriptor]
+
+
 class IngestJobStatus(BaseModel):
     """Body of ``GET /v1/ingest/{job_id}`` — full row state."""
 

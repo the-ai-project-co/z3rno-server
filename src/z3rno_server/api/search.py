@@ -18,12 +18,16 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, HTTPException, Request
 
-from z3rno_core.ingest.state import insert_ingest_job
+from z3rno_core.ingest.state import (
+    get_search_batch_aggregate,
+    insert_ingest_job,
+)
 from z3rno_core.scrapers import SearchError, TavilyScraper
 from z3rno_server.config import get_settings
 from z3rno_server.dependencies import DbSession
 from z3rno_server.middleware.rbac import require_role
 from z3rno_server.schemas.search import (
+    SearchBatchStatus,
     SearchIngestJob,
     SearchIngestRequest,
     SearchIngestResponse,
@@ -88,11 +92,13 @@ async def enqueue_search_ingest(
         logger.warning("ingest.search.provider_failed", extra={"error": str(exc)})
         raise HTTPException(status_code=503, detail="search provider failed") from exc
 
+    batch_id = uuid4()
     if not results:
         return SearchIngestResponse(
             query=body.query,
             dataset_id=body.dataset_id,
             enqueued_at=datetime.now().astimezone(),
+            batch_id=batch_id,
             jobs=[],
         )
 
@@ -114,6 +120,7 @@ async def enqueue_search_ingest(
                 kind="url",
                 dataset_id=body.dataset_id,
                 source_uri=hit.url,
+                search_batch_id=batch_id,
             )
         except Exception as exc:
             logger.exception(
@@ -147,5 +154,35 @@ async def enqueue_search_ingest(
         query=body.query,
         dataset_id=body.dataset_id,
         enqueued_at=datetime.now().astimezone(),
+        batch_id=batch_id,
         jobs=jobs,
     )
+
+
+@router.get(
+    "/search/{batch_id}",
+    response_model=SearchBatchStatus,
+    summary="Poll aggregate status for a search ingest batch",
+    responses={
+        404: {"model": ErrorResponse, "description": "Batch not found for tenant"},
+    },
+)
+async def get_search_batch_status(
+    batch_id: UUID,
+    request: Request,
+    db: DbSession,
+    _rbac: None = require_role("admin", "write", "read"),
+) -> SearchBatchStatus:
+    """Aggregate status for every ingest job tagged with ``batch_id``.
+
+    RLS isolates by ``org_id`` — a 404 covers both "no such batch" and
+    "batch belongs to another tenant."
+    """
+    org_id = _get_org_id(request)
+    conn = await db.connection()
+    aggregate = await get_search_batch_aggregate(
+        conn, org_id=org_id, batch_id=batch_id
+    )
+    if aggregate is None:
+        raise HTTPException(status_code=404, detail="search batch not found")
+    return SearchBatchStatus(batch_id=batch_id, **aggregate)

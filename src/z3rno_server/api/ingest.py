@@ -44,6 +44,8 @@ from z3rno_server.schemas.ingest import (
     IngestUploadUrlRequest,
     IngestUploadUrlResponse,
     IngestUrlRequest,
+    LoaderDescriptor,
+    LoadersResponse,
 )
 from z3rno_server.schemas.shared import ErrorResponse
 from z3rno_server.workers.ingest import _make_storage, ingest_run
@@ -466,6 +468,40 @@ async def finalize_upload(
         status="queued",
         dataset_id=dataset_id,
         enqueued_at=datetime.now().astimezone(),
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /v1/ingest/loaders — what the server can ingest right now
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/loaders",
+    response_model=LoadersResponse,
+    summary="What loaders are active on this server",
+)
+async def get_loaders(
+    request: Request,
+    _rbac: None = require_role("admin", "write", "read"),
+) -> LoadersResponse:
+    """Describe the currently-registered loaders + the relevant feature flags.
+
+    Lets SDK consumers + operators answer "what can this deployment
+    actually ingest?" before submitting a job. Reflects the same registry
+    the worker uses (multimodal loaders only attached when
+    ``MULTIMODAL_ENABLED=true``).
+    """
+    # Import here to avoid the heavy worker module at app-startup time.
+    from z3rno_server.workers.ingest import _make_loader_registry  # noqa: PLC0415
+
+    settings = get_settings()
+    registry = _make_loader_registry(settings)
+    descriptors = registry.describe_loaders()
+    return LoadersResponse(
+        multimodal_enabled=settings.multimodal_enabled,
+        playwright_enabled=settings.url_playwright_enabled,
+        loaders=[LoaderDescriptor(**d) for d in descriptors],
     )
 
 

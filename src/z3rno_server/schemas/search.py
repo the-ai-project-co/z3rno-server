@@ -40,4 +40,21 @@ class SearchIngestResponse(BaseModel):
     query: str
     dataset_id: UUID | None
     enqueued_at: datetime
+    # Tag joining every child job — poll the whole batch in one round-trip
+    # via ``GET /v1/ingest/search/{batch_id}`` instead of N child calls.
+    batch_id: UUID
     jobs: list[SearchIngestJob]
+
+
+class SearchBatchStatus(BaseModel):
+    """Body of ``GET /v1/ingest/search/{batch_id}`` — aggregate counts."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    batch_id: UUID
+    total: int
+    queued: int
+    running: int
+    completed: int
+    failed: int
+    job_ids: list[UUID]
