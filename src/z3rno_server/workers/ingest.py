@@ -26,7 +26,14 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from z3rno_core.distill.graph_writer import insert_distill_job
 from z3rno_core.engine.embedding import EmbeddingProvider, LiteLLMEmbeddingProvider
 from z3rno_core.ingest import IngestInput, IngestOptions, IngestPipeline, IngestRunSummary
-from z3rno_core.loaders import get_default_registry
+from z3rno_core.loaders import (
+    AudioLoader,
+    ImageLoader,
+    LoaderRegistry,
+    get_default_registry,
+    register_multimodal_loaders,
+)
+from z3rno_core.multimodal import get_multimodal_provider
 from z3rno_core.security.rls import set_org_context
 from z3rno_core.storage import LocalStorageBackend, S3StorageBackend, StorageBackend
 from z3rno_server.config import Settings, get_settings
@@ -75,6 +82,31 @@ def _make_storage(settings: Settings) -> StorageBackend:
     raise ValueError(f"unsupported STORAGE_BACKEND={backend!r}")
 
 
+def _make_loader_registry(settings: Settings) -> LoaderRegistry:
+    """Build the loader registry, optionally with multimodal loaders.
+
+    Phase B.2 / B.2.1: when ``MULTIMODAL_ENABLED=true`` we attach
+    ImageLoader + AudioLoader backed by the provider chosen via
+    ``MULTIMODAL_PROVIDER`` (``litellm`` | ``local`` | ``stub``).
+    Defaults preserve the pre-Phase-B.2 registry shape byte-for-byte.
+    """
+    registry = get_default_registry()
+    if not settings.multimodal_enabled:
+        return registry
+    provider = get_multimodal_provider(
+        provider=settings.multimodal_provider,
+        vision_model=settings.multimodal_vision_model,
+        audio_model=settings.multimodal_audio_model,
+        api_key=settings.effective_multimodal_api_key or None,
+    )
+    register_multimodal_loaders(
+        registry,
+        image_loader=ImageLoader(provider, max_bytes=settings.multimodal_max_image_bytes),
+        audio_loader=AudioLoader(provider, max_bytes=settings.multimodal_max_audio_bytes),
+    )
+    return registry
+
+
 def _make_embedding_provider(settings: Settings) -> EmbeddingProvider | None:
     """Reuse the existing embedding provider so ingested Memos are
     embeddable on the same model as the rest of the system.
@@ -109,6 +141,7 @@ def _decode_input(payload: dict[str, Any]) -> IngestInput:
         content=content,
         filename=payload.get("filename"),
         content_type=payload.get("content_type"),
+        source_uri=payload.get("source_uri"),
     )
 
 
@@ -233,12 +266,15 @@ def ingest_run(
         engine = _make_engine(settings)
         try:
             pipeline = IngestPipeline(
-                registry=get_default_registry(),
+                registry=_make_loader_registry(settings),
                 storage=_make_storage(settings),
                 embedding_provider=_make_embedding_provider(settings),
                 url_fetch_max_bytes=settings.ingest_max_file_bytes,
                 url_fetch_timeout_seconds=settings.url_fetch_timeout_seconds,
                 url_allowed_schemes=tuple(settings.url_allowed_schemes_list),
+                url_playwright_enabled=settings.url_playwright_enabled,
+                url_playwright_min_chars=settings.url_playwright_min_chars,
+                url_playwright_timeout_seconds=settings.url_playwright_timeout_seconds,
             )
             ingest_input = _decode_input(payload)
             opts = IngestOptions(

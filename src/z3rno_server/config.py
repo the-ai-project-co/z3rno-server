@@ -110,6 +110,12 @@ class Settings(BaseSettings):
 
     # --- Multimodal (image + audio) ---
     multimodal_enabled: bool = False
+    # Phase B.2.1: provider dispatch. "litellm" (default) routes to OpenAI
+    # vision + Whisper API; "local" runs CLIP + openai-whisper on-device
+    # via z3rno-core[multimodal-local]; "stub" is a deterministic test
+    # double. The `vision_model` / `audio_model` fields are reinterpreted
+    # per provider — see :func:`get_multimodal_provider`.
+    multimodal_provider: str = "litellm"  # litellm | local | stub
     multimodal_vision_model: str = "openai/gpt-4o-mini"
     multimodal_audio_model: str = "whisper-1"
     multimodal_api_key: str = ""  # falls back to OPENAI_API_KEY when empty

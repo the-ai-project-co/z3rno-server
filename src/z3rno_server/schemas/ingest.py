@@ -93,6 +93,37 @@ class IngestJobResponse(BaseModel):
     enqueued_at: datetime
 
 
+class IngestUploadUrlRequest(BaseModel):
+    """Body of ``POST /v1/ingest/upload-url`` (Phase B.2.1)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    agent_id: UUID
+    dataset_id: UUID | None = None
+    filename: str = Field(..., min_length=1, max_length=500)
+    content_type: str = Field(..., min_length=1, max_length=200)
+    file_size: int | None = Field(default=None, ge=1)
+    options: IngestOptionsRequest | None = None
+
+
+class IngestUploadUrlResponse(BaseModel):
+    """Body returned by ``POST /v1/ingest/upload-url``.
+
+    The client PUTs the artifact bytes directly to ``upload_url`` with
+    the matching ``Content-Type`` header, then calls
+    ``POST /v1/ingest/finalize/{job_id}`` to start the worker.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    job_id: UUID
+    upload_url: str
+    source_uri: str
+    expires_at: datetime
+    content_type: str
+    method: Literal["PUT"] = "PUT"
+
+
 class IngestJobStatus(BaseModel):
     """Body of ``GET /v1/ingest/{job_id}`` — full row state."""
 

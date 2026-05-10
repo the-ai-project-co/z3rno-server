@@ -27,7 +27,11 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from sqlalchemy import text as sa_text
 
-from z3rno_core.ingest.state import insert_ingest_job
+from z3rno_core.ingest.state import insert_ingest_job, update_ingest_job
+from z3rno_core.storage import (
+    PresignedUrlNotSupportedError,
+    StorageError,
+)
 from z3rno_server.config import get_settings
 from z3rno_server.dependencies import DbSession
 from z3rno_server.middleware.rbac import require_role
@@ -36,10 +40,12 @@ from z3rno_server.schemas.ingest import (
     IngestJobStatus,
     IngestRequest,
     IngestTextRequest,
+    IngestUploadUrlRequest,
+    IngestUploadUrlResponse,
     IngestUrlRequest,
 )
 from z3rno_server.schemas.shared import ErrorResponse
-from z3rno_server.workers.ingest import ingest_run
+from z3rno_server.workers.ingest import _make_storage, ingest_run
 
 logger = logging.getLogger(__name__)
 
@@ -264,6 +270,189 @@ async def enqueue_ingest_file(
         },
         dataset_id=dataset_id,
         options=options,
+        request_id=getattr(request.state, "request_id", None),
+    )
+
+    return IngestJobResponse(
+        job_id=job_id,
+        kind="file",
+        status="queued",
+        dataset_id=dataset_id,
+        enqueued_at=datetime.now().astimezone(),
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /v1/ingest/upload-url — presigned direct-to-storage upload (Phase B.2.1)
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/upload-url",
+    response_model=IngestUploadUrlResponse,
+    status_code=201,
+    responses={
+        400: {"model": ErrorResponse},
+        401: {"model": ErrorResponse},
+        403: {"model": ErrorResponse},
+        413: {"model": ErrorResponse},
+        501: {"model": ErrorResponse},
+    },
+    summary="Issue a presigned upload URL for direct-to-storage ingestion",
+)
+async def issue_upload_url(
+    body: IngestUploadUrlRequest,
+    request: Request,
+    db: DbSession,
+    _rbac: None = require_role("admin", "write"),
+) -> IngestUploadUrlResponse:
+    """Issue a presigned PUT URL the client uploads to directly.
+
+    The ingest_jobs row is created in ``awaiting_upload`` status. After
+    the client PUTs the bytes to ``upload_url`` it must call
+    ``POST /v1/ingest/finalize/{job_id}`` to start the worker.
+    """
+    settings = get_settings()
+    org_id = _get_org_id(request)
+
+    if body.file_size is not None and body.file_size > settings.ingest_max_file_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                f"declared file_size {body.file_size} exceeds INGEST_MAX_FILE_BYTES="
+                f"{settings.ingest_max_file_bytes}"
+            ),
+        )
+
+    storage = _make_storage(settings)
+    try:
+        presigned = await storage.presigned_put_url(
+            org_id=org_id,
+            content_type=body.content_type,
+            filename=body.filename,
+        )
+    except PresignedUrlNotSupportedError as exc:
+        raise HTTPException(
+            status_code=501,
+            detail="storage backend does not support presigned upload URLs",
+        ) from exc
+    except StorageError as exc:
+        logger.exception("ingest.upload_url.storage_failed")
+        raise HTTPException(status_code=502, detail="storage backend error") from exc
+
+    job_id = uuid4()
+    try:
+        conn = await db.connection()
+        await insert_ingest_job(
+            conn,
+            job_id=job_id,
+            org_id=org_id,
+            agent_id=body.agent_id,
+            kind="file",
+            dataset_id=body.dataset_id,
+            source_uri=presigned.source_uri,
+            content_type=presigned.content_type,
+            filename=body.filename,
+            file_size=body.file_size,
+            status="awaiting_upload",
+        )
+    except Exception as exc:
+        logger.exception("ingest.upload_url.insert_failed", extra={"job_id": str(job_id)})
+        raise HTTPException(status_code=500, detail="failed to persist ingest job") from exc
+
+    return IngestUploadUrlResponse(
+        job_id=job_id,
+        upload_url=presigned.upload_url,
+        source_uri=presigned.source_uri,
+        expires_at=presigned.expires_at,
+        content_type=presigned.content_type,
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /v1/ingest/finalize/{job_id} — kick the worker after client upload
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/finalize/{job_id}",
+    response_model=IngestJobResponse,
+    status_code=202,
+    responses={
+        400: {"model": ErrorResponse},
+        401: {"model": ErrorResponse},
+        403: {"model": ErrorResponse},
+        404: {"model": ErrorResponse},
+        409: {"model": ErrorResponse},
+    },
+    summary="Mark a presigned upload as complete and enqueue the worker",
+)
+async def finalize_upload(
+    job_id: UUID,
+    request: Request,
+    db: DbSession,
+    _rbac: None = require_role("admin", "write"),
+) -> IngestJobResponse:
+    """Transition an ``awaiting_upload`` job into the worker pipeline.
+
+    Re-finalizing a job is rejected with ``409`` (any non-awaiting
+    status). RLS isolates the lookup so cross-tenant finalize attempts
+    return ``404``.
+    """
+    org_id = _get_org_id(request)
+    _ = org_id  # asserts auth + RLS context
+
+    conn = await db.connection()
+    row = (
+        await conn.execute(
+            sa_text("""
+                SELECT id, agent_id, dataset_id,
+                       status::text, source_uri, content_type, filename
+                FROM ingest_jobs
+                WHERE id = CAST(:id AS uuid)
+            """),
+            {"id": str(job_id)},
+        )
+    ).fetchone()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="ingest job not found")
+
+    status_now = row[3]
+    if status_now != "awaiting_upload":
+        raise HTTPException(
+            status_code=409,
+            detail=f"ingest job is not awaiting_upload (status={status_now!r})",
+        )
+
+    source_uri: str | None = row[4]
+    if not source_uri:
+        raise HTTPException(status_code=409, detail="ingest job missing source_uri")
+
+    agent_id: UUID = row[1]
+    dataset_id: UUID | None = row[2]
+    content_type: str | None = row[5]
+    filename: str | None = row[6]
+
+    try:
+        await update_ingest_job(conn, job_id=job_id, status="queued")
+    except Exception as exc:
+        logger.exception("ingest.finalize.update_failed", extra={"job_id": str(job_id)})
+        raise HTTPException(status_code=500, detail="failed to update ingest job") from exc
+
+    payload = {
+        "kind": "s3_uri",
+        "source_uri": source_uri,
+        "content_type": content_type,
+        "filename": filename,
+    }
+    _enqueue(
+        job_id=job_id,
+        org_id=org_id,
+        agent_id=agent_id,
+        payload=payload,
+        dataset_id=dataset_id,
+        options={},
         request_id=getattr(request.state, "request_id", None),
     )
 
