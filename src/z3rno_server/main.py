@@ -35,7 +35,8 @@ def create_app() -> FastAPI:
 
     # Middleware (order matters — outermost first, innermost last)
     # Chain: request_id -> logging -> body_limit -> auth -> rate_limit -> route
-    app.add_middleware(RateLimitMiddleware)
+    if settings.rate_limit_enabled:
+        app.add_middleware(RateLimitMiddleware)
     app.add_middleware(AuthMiddleware)
     app.add_middleware(BodyLimitMiddleware)
     app.add_middleware(LoggingMiddleware)

@@ -1,0 +1,50 @@
+# Overrides for load-test runs of the dev stack.
+#
+# Tunes for higher concurrency than the default dev compose:
+#   - 4 uvicorn workers (vs default 1)
+#   - EMBEDDING_PROVIDER=noop (no OpenAI calls during load)
+#   - RATE_LIMIT_ENABLED=false (so a single org can sustain >10k req/min)
+#   - DB connection pool sized for sustained 1k concurrent users
+#   - Postgres tuned for higher max_connections
+#
+# Usage from z3rno-server/:
+#   docker compose -f docker-compose.dev.yml \
+#                  -f loadtest/docker-compose.loadtest.yml \
+#                  up -d --build
+#   ./loadtest/run.sh sanity      # 60s validation
+#   ./loadtest/run.sh small       # 500 users / 5min
+#   ./loadtest/run.sh medium      # 1000 users / 5min
+
+services:
+  postgres:
+    command:
+      - postgres
+      - -c
+      - max_connections=400
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - work_mem=16MB
+      - -c
+      - effective_cache_size=2GB
+      - -c
+      - max_wal_size=2GB
+
+  server:
+    environment:
+      EMBEDDING_PROVIDER: noop
+      RATE_LIMIT_ENABLED: "false"
+      UVICORN_WORKERS: "4"
+      DATABASE_POOL_SIZE: "25"
+      DATABASE_MAX_OVERFLOW: "25"
+      LOG_LEVEL: WARNING
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 2G
+
+  worker:
+    environment:
+      EMBEDDING_PROVIDER: noop
+      LOG_LEVEL: WARNING

@@ -75,5 +75,5 @@ asyncio.run(seed())
 " 2>/dev/null || echo "z3rno-server: dev seed skipped (non-critical)"
 fi
 
-echo "z3rno-server: starting uvicorn..."
-exec uvicorn z3rno_server.main:app --host 0.0.0.0 --port 8000
+echo "z3rno-server: starting uvicorn (workers=${UVICORN_WORKERS:-1})..."
+exec uvicorn z3rno_server.main:app --host 0.0.0.0 --port 8000 --workers "${UVICORN_WORKERS:-1}"

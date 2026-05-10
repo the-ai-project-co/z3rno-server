@@ -162,6 +162,7 @@ class Settings(BaseSettings):
     jwt_expiry_minutes: int = 60  # Token expiry in minutes
 
     # Rate limiting
+    rate_limit_enabled: bool = True
     rate_limit_per_minute: int = 60
     rate_limit_burst: int = 10
 

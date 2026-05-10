@@ -26,6 +26,10 @@ WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY src/ src/
 
+# Strip the local-dev [tool.uv.sources] override so the Docker build resolves
+# z3rno-core from PyPI (per the version pin), not from a sibling checkout.
+RUN python -c "import re,pathlib; p=pathlib.Path('pyproject.toml'); t=p.read_text(); t=re.sub(r'\n\[tool\.uv\.sources\][\s\S]*?(?=\n\[|\Z)', '\n', t); p.write_text(t)"
+
 # Install dependencies into the system site-packages
 RUN uv pip install --system ".[worker]"
 
