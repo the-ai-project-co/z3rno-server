@@ -142,6 +142,9 @@ class IngestJobStatus(BaseModel):
     memos_written: int
     distill_job_id: UUID | None
     error: str | None
+    # Non-fatal anomalies — each {"code": "...", "detail": "..."}. Empty list
+    # for a clean ingest. ``error`` is reserved for fatal terminal failures.
+    warnings: list[dict[str, str]] = []
     started_at: datetime | None
     completed_at: datetime | None
     created_at: datetime

@@ -37,6 +37,7 @@ from z3rno_core.multimodal import get_multimodal_provider
 from z3rno_core.security.rls import set_org_context
 from z3rno_core.storage import LocalStorageBackend, S3StorageBackend, StorageBackend
 from z3rno_server.config import Settings, get_settings
+from z3rno_server.observability import record_ingest_outcome
 from z3rno_server.workers.celery_app import celery_app
 from z3rno_server.workers.forge import forge_distill
 
@@ -294,17 +295,21 @@ def ingest_run(
                 else None
             )
 
-            summary = await pipeline.run(
-                engine,
-                org_id=UUID(org_id),
-                agent_id=UUID(agent_id),
-                ingest_input=ingest_input,
-                dataset_id=UUID(dataset_id) if dataset_id else None,
-                job_id=UUID(job_id),
-                options=opts,
-                post_ingest=post_ingest,
-                request_id=request_id,
-            )
+            with record_ingest_outcome(kind=ingest_input.kind) as outcome:
+                summary = await pipeline.run(
+                    engine,
+                    org_id=UUID(org_id),
+                    agent_id=UUID(agent_id),
+                    ingest_input=ingest_input,
+                    dataset_id=UUID(dataset_id) if dataset_id else None,
+                    job_id=UUID(job_id),
+                    options=opts,
+                    post_ingest=post_ingest,
+                    request_id=request_id,
+                )
+                outcome["status"] = (
+                    "completed" if summary.status == "completed" else "failed"
+                )
             return _summary_to_dict(summary)
         finally:
             await engine.dispose()

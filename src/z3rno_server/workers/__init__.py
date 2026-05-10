@@ -11,5 +11,6 @@ from z3rno_server.workers import (  # noqa: F401  (side-effect imports register 
     forge,
     healthcheck,
     ingest,
+    ingest_watchdog,
     lifecycle,
 )

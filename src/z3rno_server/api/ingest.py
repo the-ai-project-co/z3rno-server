@@ -35,6 +35,7 @@ from z3rno_core.storage import (
 from z3rno_server.config import get_settings
 from z3rno_server.dependencies import DbSession
 from z3rno_server.middleware.rbac import require_role
+from z3rno_server.observability import INGEST_JOBS_TOTAL
 from z3rno_server.schemas.ingest import (
     IngestJobResponse,
     IngestJobStatus,
@@ -100,7 +101,10 @@ def _enqueue(
         )
     except Exception as exc:
         logger.exception("ingest.enqueue.celery_dispatch_failed", extra={"job_id": str(job_id)})
+        INGEST_JOBS_TOTAL.labels(status="rejected", kind=str(payload.get("kind", "?"))).inc()
         raise HTTPException(status_code=503, detail="background worker unavailable") from exc
+
+    INGEST_JOBS_TOTAL.labels(status="enqueued", kind=str(payload.get("kind", "?"))).inc()
 
 
 # ---------------------------------------------------------------------------
@@ -501,7 +505,8 @@ async def get_ingest_status(
                        filename, file_size,
                        memory_ids, memos_written,
                        distill_job_id,
-                       error, started_at, completed_at, created_at, updated_at
+                       error, warnings, started_at, completed_at,
+                       created_at, updated_at
                 FROM ingest_jobs
                 WHERE id = CAST(:id AS uuid)
             """),
@@ -526,8 +531,9 @@ async def get_ingest_status(
         memos_written=row[10],
         distill_job_id=row[11],
         error=row[12],
-        started_at=row[13],
-        completed_at=row[14],
-        created_at=row[15],
-        updated_at=row[16],
+        warnings=list(row[13] or []),
+        started_at=row[14],
+        completed_at=row[15],
+        created_at=row[16],
+        updated_at=row[17],
     )
