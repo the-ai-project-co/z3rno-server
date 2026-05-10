@@ -27,7 +27,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Z3rno Memory API",
         description="AI Agent Memory Database — store, recall, forget, audit",
-        version="0.3.0",
+        version="0.4.0",
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
@@ -64,6 +64,16 @@ def create_app() -> FastAPI:
         from z3rno_server.api.distill import router as distill_router  # noqa: PLC0415
 
         app.include_router(distill_router)
+
+    # Phase B.1 — gated. /v1/ingest is registered only when
+    # INGEST_ENABLED=true. /v1/datasets ships in the same opt-in surface
+    # (Task 34); both are dormant by default.
+    if settings.ingest_enabled:
+        from z3rno_server.api.datasets import router as datasets_router  # noqa: PLC0415
+        from z3rno_server.api.ingest import router as ingest_router  # noqa: PLC0415
+
+        app.include_router(ingest_router)
+        app.include_router(datasets_router)
 
     # Prometheus metrics — auto-instruments all endpoints with request count,
     # latency histograms, and error rates. Exposed at GET /metrics.

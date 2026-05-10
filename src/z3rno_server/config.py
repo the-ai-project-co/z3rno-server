@@ -73,6 +73,35 @@ class Settings(BaseSettings):
         """
         return self.llm_api_key or self.openai_api_key
 
+    # =========================================================================
+    # Phase B.1 — Ingestion surface (loaders + datasets + /v1/ingest).
+    # All Phase B.1 surfaces are dormant unless INGEST_ENABLED=true.
+    # When false, /v1/ingest and /v1/datasets are not registered and the
+    # ingest worker rejects messages without DB I/O — existing endpoints
+    # behave byte-identically to pre-Phase-B.
+    # =========================================================================
+    ingest_enabled: bool = False
+
+    # Storage backend for raw artifacts (uploaded files, fetched URLs).
+    # Phase B.1 ships "local" only; Phase B.2 will add "s3".
+    storage_backend: str = "local"
+    storage_local_dir: str = "/var/lib/z3rno/artifacts"
+
+    # Ingest tuning.
+    ingest_max_file_bytes: int = 50 * 1024 * 1024  # 50 MB hard cap on uploads
+    ingest_max_csv_rows: int = 10_000  # cap CSV row expansion to prevent runaway extraction
+    ingest_default_chunk_size: int = 1024  # tokens; can be overridden per-request
+    ingest_auto_distill: bool = True  # chain ingest -> Forge automatically
+
+    # URL loader.
+    url_fetch_timeout_seconds: float = 15.0
+    url_allowed_schemes: str = "http,https"  # comma-separated allowlist
+
+    @property
+    def url_allowed_schemes_list(self) -> list[str]:
+        """Parse comma-separated URL scheme allowlist."""
+        return [s.strip().lower() for s in self.url_allowed_schemes.split(",") if s.strip()]
+
     # API
     cors_origins: str = "http://localhost:3000,http://localhost:8000"
     api_key_header: str = "X-API-Key"

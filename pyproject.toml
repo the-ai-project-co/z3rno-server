@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "z3rno-server"
-version = "0.3.0"
+version = "0.4.0"
 description = "FastAPI server for Z3rno: REST API, authentication, rate limiting, and Celery workers."
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -15,7 +15,7 @@ authors = [
 
 dependencies = [
   # Core engine
-  "z3rno-core>=0.3.0",
+  "z3rno-core>=0.4.0",
   # Web framework
   "fastapi>=0.115.0",
   "uvicorn[standard]>=0.32.0",
@@ -30,6 +30,8 @@ dependencies = [
   "PyJWT[crypto]>=2.9.0",
   # LLM
   "litellm>=1.55.0",
+  # Phase B.1 — file-upload support for POST /v1/ingest (multipart/form-data).
+  "python-multipart>=0.0.9",
   # Logging
   "structlog>=24.4.0",
   # Observability

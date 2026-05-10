@@ -49,6 +49,22 @@ The Celery task `z3rno.forge_distill` runs the pipeline asynchronously. With `DI
 
 See `../z3rno-process-docs/improvements/PHASE-A-IMPLEMENTATION.md` for full operator reference.
 
+### Phase B.1 — Ingestion (registered only when `INGEST_ENABLED=true`)
+
+- `POST /v1/ingest` — JSON body for `text` or `url` ingest; returns `202` + `job_id`; RBAC: admin/write
+- `POST /v1/ingest/file` — multipart file upload (PDF / DOCX / CSV / MD / code / text); RBAC: admin/write
+- `GET /v1/ingest/{job_id}` — Poll job status; RBAC: admin/write/read
+- `POST /v1/datasets` — Create a dataset (`UNIQUE (org_id, name)` → 409 on duplicate); RBAC: admin/write
+- `GET /v1/datasets` — Paginated list (limit 1..500); RBAC: admin/write/read
+- `GET /v1/datasets/{id}` — Fetch one (RLS-isolated → 404 cross-tenant); RBAC: admin/write/read
+- `DELETE /v1/datasets/{id}` — Soft-delete + detach memories (memo rows preserved); RBAC: admin/write
+
+The Celery task `z3rno.ingest_run` bridges to `IngestPipeline.run()`. When `INGEST_AUTO_DISTILL=true` AND `DISTILL_ENABLED=true`, every successful ingest chains into a `forge_distill` run automatically.
+
+`BodyLimitMiddleware` whitelists `multipart/form-data` for `/v1/ingest/file` only; that endpoint enforces its own size cap via `INGEST_MAX_FILE_BYTES`.
+
+See `../z3rno-process-docs/improvements/PHASE-B1-IMPLEMENTATION.md` for full operator reference.
+
 ## Middleware Chain (order matters)
 
 RequestId -> Logging -> Auth -> RateLimit -> Route Handler
@@ -85,6 +101,18 @@ RequestId -> Logging -> Auth -> RateLimit -> Route Handler
 - `DISTILL_CHUNK_SIZE` / `DISTILL_CHUNK_OVERLAP` — Token-budget tuning (defaults: `1024` / `128`)
 - `DISTILL_MAX_CONCURRENCY` — Per-job LLM fan-out cap (default: `4`)
 - `DISTILL_SUMMARY_STYLE` — `concise | bullet | abstractive` (default: `concise`)
+
+### Phase B.1 — Ingestion (all default to dormant)
+
+- `INGEST_ENABLED` — Master switch (default: `false`). When `false`, `/v1/ingest` and `/v1/datasets` are not registered and the worker self-rejects.
+- `STORAGE_BACKEND` — `local` only in Phase B.1 (default); `s3` reserved for B.2
+- `STORAGE_LOCAL_DIR` — Filesystem root for the `local` backend (default: `/var/lib/z3rno/artifacts`)
+- `INGEST_MAX_FILE_BYTES` — Hard cap on uploads + URL responses (default: 50 MB)
+- `INGEST_MAX_CSV_ROWS` — Cap on CSV row expansion (default: 10000)
+- `INGEST_AUTO_DISTILL` — When `true` *and* `DISTILL_ENABLED=true`, ingest chains into `forge_distill` (default: `true`)
+- `INGEST_DEFAULT_CHUNK_SIZE` — Override-on-request chunk size (default: 1024)
+- `URL_FETCH_TIMEOUT_SECONDS` — Per-request timeout for URL ingest (default: 15)
+- `URL_ALLOWED_SCHEMES` — Comma-separated allowlist (default: `http,https`)
 
 ## Docker Compose
 
