@@ -134,11 +134,12 @@ async def recall_memories(
     org_id = _get_org_id(request)
 
     conn = await db.connection()
-    results = await recall(
+    response = await recall(
         conn,
         org_id=org_id,
         agent_id=body.agent_id,
         query=body.query,
+        strategy=body.strategy,
         embedding_provider=NoOpEmbeddingProvider() if body.query else None,
         memory_type=body.memory_type,
         filters=body.filters,
@@ -150,23 +151,38 @@ async def recall_memories(
         request_id=getattr(request.state, "request_id", None),
     )
 
+    # Phase C: response is a RecallResponse wrapper around StrategyResult.
+    # Each StrategyResult carries score_components instead of a flat
+    # similarity_score, so we extract the "vector" component (when
+    # present) for the legacy ``similarity_score`` field on the API
+    # response. score_components is also surfaced directly for clients
+    # that want the per-source signals (re-ranking, fusion debugging).
     items = [
         RecallResultItem(
             memory_id=r.memory_id,
             content=r.content,
             summary=r.summary,
             memory_type=r.memory_type,
-            similarity_score=r.similarity_score,
+            similarity_score=float(r.score_components.get("vector", 0.0)),
             importance_score=r.importance_score,
             relevance_score=r.relevance_score,
             recall_count=r.recall_count,
             created_at=r.created_at,
             metadata=r.metadata,
+            score_components=r.score_components,
         )
-        for r in results
+        for r in response
     ]
 
-    return RecallResponse(results=items, total=len(items), query=body.query)
+    return RecallResponse(
+        results=items,
+        total=len(items),
+        query=body.query,
+        strategy_used=response.strategy_used,
+        strategies_considered=response.strategies_considered,
+        reranked=response.reranked,
+        elapsed_ms=response.elapsed_ms,
+    )
 
 
 @router.post(

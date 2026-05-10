@@ -63,6 +63,12 @@ class RecallRequest(BaseModel):
     time_range: tuple[datetime, datetime] | None = None
     as_of: datetime | None = None
     include_deleted: bool = False
+    # Phase C: strategy selection. Case-insensitive. AUTO is the default
+    # and in C.1 delegates to VECTOR; later slices wire it to an LLM
+    # classifier that picks among VECTOR / LEXICAL / GRAPH / etc.
+    strategy: str = "AUTO"
+    # Phase C.3: opt-in cross-encoder re-ranking. Ignored in C.1.
+    rerank: bool = False
 
 
 class RecallResultItem(BaseModel):
@@ -78,6 +84,9 @@ class RecallResultItem(BaseModel):
     recall_count: int
     created_at: datetime
     metadata: dict[str, Any] = Field(default_factory=dict)
+    # Phase C: per-source signals (vector, lexical, graph_distance, …).
+    # Optional — clients ignoring it keep the existing flat shape.
+    score_components: dict[str, float] = Field(default_factory=dict)
 
 
 class RecallResponse(BaseModel):
@@ -86,6 +95,13 @@ class RecallResponse(BaseModel):
     results: list[RecallResultItem]
     total: int
     query: str | None = None
+    # Phase C: strategy provenance. ``strategy_used`` is what actually
+    # ran (after AUTO routing + re-rank); ``strategies_considered`` is
+    # the AUTO candidate list for explainability.
+    strategy_used: str = "VECTOR"
+    strategies_considered: list[str] = Field(default_factory=list)
+    reranked: bool = False
+    elapsed_ms: float = 0.0
 
 
 class ForgetRequest(BaseModel):

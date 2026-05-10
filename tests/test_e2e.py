@@ -39,7 +39,7 @@ def _make_store_result() -> MagicMock:
 
 
 def _make_recall_result(content: str) -> MagicMock:
-    """Create a mock RecallResult matching z3rno_core.engine.recall return."""
+    """Create a mock StrategyResult matching z3rno_core.engine.recall return."""
     item = MagicMock()
     item.memory_id = MEMORY_ID
     item.content = content
@@ -51,7 +51,27 @@ def _make_recall_result(content: str) -> MagicMock:
     item.recall_count = 1
     item.created_at = NOW
     item.metadata = {}
+    # Phase C: score_components must be a real dict, not a MagicMock
+    # autospec — pydantic validates the dict shape.
+    item.score_components = {"vector": 0.95}
     return item
+
+
+def _make_recall_response(items: list[MagicMock]) -> MagicMock:
+    """Mock the Phase C RecallResponse wrapper.
+
+    The handler iterates the response (``for r in response``) and reads
+    ``strategy_used`` / ``strategies_considered`` / ``reranked`` /
+    ``elapsed_ms`` off it. A bare list misses the attribute shape; a
+    MagicMock with __iter__ + the named attrs covers both.
+    """
+    response = MagicMock()
+    response.__iter__ = lambda self: iter(items)
+    response.strategy_used = "VECTOR"
+    response.strategies_considered = ["AUTO->VECTOR"]
+    response.reranked = False
+    response.elapsed_ms = 1.0
+    return response
 
 
 def _make_forget_result() -> MagicMock:
@@ -142,7 +162,7 @@ async def test_memory_lifecycle_e2e(client: AsyncClient) -> None:
 
     # Step 2: Recall the memory
     with patch("z3rno_server.api.memories.recall", new_callable=AsyncMock) as mock_recall:
-        mock_recall.return_value = [_make_recall_result(content)]
+        mock_recall.return_value = _make_recall_response([_make_recall_result(content)])
 
         response = await client.post(
             "/v1/memories/recall",
@@ -178,7 +198,7 @@ async def test_memory_lifecycle_e2e(client: AsyncClient) -> None:
 
     # Step 4: Verify recall no longer returns it
     with patch("z3rno_server.api.memories.recall", new_callable=AsyncMock) as mock_recall:
-        mock_recall.return_value = []  # Empty - memory is forgotten
+        mock_recall.return_value = _make_recall_response([])  # Empty - memory is forgotten
 
         response = await client.post(
             "/v1/memories/recall",
