@@ -38,6 +38,12 @@ services:
       DATABASE_POOL_SIZE: "25"
       DATABASE_MAX_OVERFLOW: "25"
       LOG_LEVEL: WARNING
+    # Overlay the local z3rno-core checkout on top of the installed package
+    # so this stack tests pre-release engine changes without rebuilding the
+    # PyPI wheel each iteration. Production builds resolve z3rno-core from
+    # PyPI per the version pin in pyproject.toml.
+    volumes:
+      - ../z3rno-core/src/z3rno_core:/usr/local/lib/python3.12/site-packages/z3rno_core:ro
     deploy:
       resources:
         limits:
@@ -48,3 +54,5 @@ services:
     environment:
       EMBEDDING_PROVIDER: noop
       LOG_LEVEL: WARNING
+    volumes:
+      - ../z3rno-core/src/z3rno_core:/usr/local/lib/python3.12/site-packages/z3rno_core:ro

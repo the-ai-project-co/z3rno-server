@@ -9,12 +9,18 @@ import os
 
 from celery import Celery
 
-REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+# Prefer VALKEY_URL (Valkey is the canonical name in v0.3+); fall back to
+# REDIS_URL for backward compatibility, then to a localhost default.
+BROKER_URL = (
+    os.environ.get("VALKEY_URL")
+    or os.environ.get("REDIS_URL")
+    or "redis://localhost:6379/0"
+)
 
 celery_app = Celery(
     "z3rno",
-    broker=REDIS_URL,
-    backend=REDIS_URL,
+    broker=BROKER_URL,
+    backend=BROKER_URL,
 )
 
 celery_app.conf.update(
