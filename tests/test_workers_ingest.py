@@ -68,8 +68,18 @@ class TestMakeStorage:
         backend = _make_storage(s)
         assert backend.name == "local"
 
-    def test_unsupported_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_s3_requires_bucket(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Phase B.2 added s3 support; missing S3_BUCKET is the new error.
         monkeypatch.setenv("STORAGE_BACKEND", "s3")
+        monkeypatch.setenv("S3_BUCKET", "")
+        from z3rno_server.config import Settings
+
+        s = Settings()
+        with pytest.raises(ValueError, match="S3_BUCKET"):
+            _make_storage(s)
+
+    def test_unknown_backend_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("STORAGE_BACKEND", "azure")
         from z3rno_server.config import Settings
 
         s = Settings()

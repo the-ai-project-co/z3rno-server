@@ -27,7 +27,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Z3rno Memory API",
         description="AI Agent Memory Database — store, recall, forget, audit",
-        version="0.4.0",
+        version="0.5.0",
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
@@ -74,6 +74,12 @@ def create_app() -> FastAPI:
 
         app.include_router(ingest_router)
         app.include_router(datasets_router)
+
+        # Phase B.2 — /v1/ingest/search registers only when Tavily is configured.
+        if settings.tavily_api_key:
+            from z3rno_server.api.search import router as search_router  # noqa: PLC0415
+
+            app.include_router(search_router)
 
     # Prometheus metrics — auto-instruments all endpoints with request count,
     # latency histograms, and error rates. Exposed at GET /metrics.

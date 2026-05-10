@@ -28,7 +28,7 @@ from z3rno_core.engine.embedding import EmbeddingProvider, LiteLLMEmbeddingProvi
 from z3rno_core.ingest import IngestInput, IngestOptions, IngestPipeline, IngestRunSummary
 from z3rno_core.loaders import get_default_registry
 from z3rno_core.security.rls import set_org_context
-from z3rno_core.storage import LocalStorageBackend, StorageBackend
+from z3rno_core.storage import LocalStorageBackend, S3StorageBackend, StorageBackend
 from z3rno_server.config import Settings, get_settings
 from z3rno_server.workers.celery_app import celery_app
 from z3rno_server.workers.forge import forge_distill
@@ -54,13 +54,25 @@ def _make_engine(settings: Settings) -> AsyncEngine:
 def _make_storage(settings: Settings) -> StorageBackend:
     """Construct the configured storage backend.
 
-    Phase B.1 only ships ``local``. Phase B.2 will add ``s3`` to this
-    factory.
+    Phase B.1 ships ``local``; Phase B.2 adds ``s3``. Both implement
+    the same :class:`StorageBackend` interface so the IngestPipeline
+    is agnostic to the backend choice.
     """
     backend = settings.storage_backend.lower()
     if backend == "local":
         return LocalStorageBackend(settings.storage_local_dir)
-    raise ValueError(f"unsupported STORAGE_BACKEND={backend!r} (Phase B.1 ships only 'local')")
+    if backend == "s3":
+        if not settings.s3_bucket:
+            raise ValueError("STORAGE_BACKEND=s3 requires S3_BUCKET to be set")
+        return S3StorageBackend(
+            bucket=settings.s3_bucket,
+            region=settings.s3_region,
+            prefix=settings.s3_prefix,
+            endpoint_url=settings.s3_endpoint_url or None,
+            access_key_id=settings.s3_access_key_id or None,
+            secret_access_key=settings.s3_secret_access_key or None,
+        )
+    raise ValueError(f"unsupported STORAGE_BACKEND={backend!r}")
 
 
 def _make_embedding_provider(settings: Settings) -> EmbeddingProvider | None:

@@ -52,7 +52,7 @@ See `../z3rno-process-docs/improvements/PHASE-A-IMPLEMENTATION.md` for full oper
 ### Phase B.1 — Ingestion (registered only when `INGEST_ENABLED=true`)
 
 - `POST /v1/ingest` — JSON body for `text` or `url` ingest; returns `202` + `job_id`; RBAC: admin/write
-- `POST /v1/ingest/file` — multipart file upload (PDF / DOCX / CSV / MD / code / text); RBAC: admin/write
+- `POST /v1/ingest/file` — multipart file upload (PDF / DOCX / CSV / MD / code / text + Phase B.2 image/audio); RBAC: admin/write
 - `GET /v1/ingest/{job_id}` — Poll job status; RBAC: admin/write/read
 - `POST /v1/datasets` — Create a dataset (`UNIQUE (org_id, name)` → 409 on duplicate); RBAC: admin/write
 - `GET /v1/datasets` — Paginated list (limit 1..500); RBAC: admin/write/read
@@ -64,6 +64,15 @@ The Celery task `z3rno.ingest_run` bridges to `IngestPipeline.run()`. When `INGE
 `BodyLimitMiddleware` whitelists `multipart/form-data` for `/v1/ingest/file` only; that endpoint enforces its own size cap via `INGEST_MAX_FILE_BYTES`.
 
 See `../z3rno-process-docs/improvements/PHASE-B1-IMPLEMENTATION.md` for full operator reference.
+
+### Phase B.2 — Multimodal + Search + S3 (opt-in)
+
+- `POST /v1/ingest/search` — Tavily-driven discovery; registered only when `INGEST_ENABLED=true` AND `TAVILY_API_KEY` set. Returns 202 with one `job_id` per discovered URL. RBAC: admin/write.
+- `POST /v1/ingest/file` accepts `image/*` and `audio/*` MIME types when `MULTIMODAL_ENABLED=true`. Loaders route through `MultimodalProvider` (vision + Whisper).
+- `STORAGE_BACKEND=s3` swaps `LocalStorageBackend` for `S3StorageBackend`; same `_make_storage()` factory in the worker.
+- `URL_PLAYWRIGHT_ENABLED=true` + `[playwright]` extra activates the JS-rendered URL fallback inside the existing URL loader.
+
+See `../z3rno-process-docs/improvements/PHASE-B2-IMPLEMENTATION.md` for full operator reference.
 
 ## Middleware Chain (order matters)
 
@@ -105,7 +114,7 @@ RequestId -> Logging -> Auth -> RateLimit -> Route Handler
 ### Phase B.1 — Ingestion (all default to dormant)
 
 - `INGEST_ENABLED` — Master switch (default: `false`). When `false`, `/v1/ingest` and `/v1/datasets` are not registered and the worker self-rejects.
-- `STORAGE_BACKEND` — `local` only in Phase B.1 (default); `s3` reserved for B.2
+- `STORAGE_BACKEND` — `local` (default) or `s3` (Phase B.2)
 - `STORAGE_LOCAL_DIR` — Filesystem root for the `local` backend (default: `/var/lib/z3rno/artifacts`)
 - `INGEST_MAX_FILE_BYTES` — Hard cap on uploads + URL responses (default: 50 MB)
 - `INGEST_MAX_CSV_ROWS` — Cap on CSV row expansion (default: 10000)
@@ -113,6 +122,21 @@ RequestId -> Logging -> Auth -> RateLimit -> Route Handler
 - `INGEST_DEFAULT_CHUNK_SIZE` — Override-on-request chunk size (default: 1024)
 - `URL_FETCH_TIMEOUT_SECONDS` — Per-request timeout for URL ingest (default: 15)
 - `URL_ALLOWED_SCHEMES` — Comma-separated allowlist (default: `http,https`)
+
+### Phase B.2 — Multimodal + Search + S3 (all default to dormant)
+
+- `MULTIMODAL_ENABLED` — Master switch for image/audio loaders (default: `false`)
+- `MULTIMODAL_VISION_MODEL` — LiteLLM vision model (default: `openai/gpt-4o-mini`)
+- `MULTIMODAL_AUDIO_MODEL` — LiteLLM audio model (default: `whisper-1`)
+- `MULTIMODAL_API_KEY` — Falls back to `OPENAI_API_KEY`
+- `MULTIMODAL_MAX_AUDIO_BYTES` (25 MB) / `MULTIMODAL_MAX_IMAGE_BYTES` (20 MB)
+- `S3_BUCKET` — Required when `STORAGE_BACKEND=s3`
+- `S3_REGION` (default: `us-east-1`) / `S3_ENDPOINT_URL` (for MinIO/R2)
+- `S3_PREFIX` (default: `z3rno`) / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` (empty → default AWS chain)
+- `TAVILY_API_KEY` — When set, registers `POST /v1/ingest/search`
+- `TAVILY_SEARCH_DEPTH` (default: `basic`) / `TAVILY_MAX_RESULTS` (default: `5`)
+- `URL_PLAYWRIGHT_ENABLED` (default: `false`); requires `pip install 'z3rno-core[playwright]'`
+- `URL_PLAYWRIGHT_TIMEOUT_SECONDS` (default: `30`)
 
 ## Docker Compose
 

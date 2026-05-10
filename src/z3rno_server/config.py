@@ -102,6 +102,45 @@ class Settings(BaseSettings):
         """Parse comma-separated URL scheme allowlist."""
         return [s.strip().lower() for s in self.url_allowed_schemes.split(",") if s.strip()]
 
+    # =========================================================================
+    # Phase B.2 — Multimodal + S3 + Tavily (all default-dormant).
+    # Each capability is independently gated; turning on multimodal does not
+    # require S3, etc.
+    # =========================================================================
+
+    # --- Multimodal (image + audio) ---
+    multimodal_enabled: bool = False
+    multimodal_vision_model: str = "openai/gpt-4o-mini"
+    multimodal_audio_model: str = "whisper-1"
+    multimodal_api_key: str = ""  # falls back to OPENAI_API_KEY when empty
+    multimodal_max_audio_bytes: int = 25 * 1024 * 1024  # OpenAI Whisper cap
+    multimodal_max_image_bytes: int = 20 * 1024 * 1024
+
+    @property
+    def effective_multimodal_api_key(self) -> str:
+        """Return MULTIMODAL_API_KEY if set, otherwise fall back to
+        OPENAI_API_KEY. Lets operators reuse one key for embeddings,
+        the Forge LLM Gateway, *and* multimodal calls."""
+        return self.multimodal_api_key or self.openai_api_key
+
+    # --- S3 storage backend (selected via STORAGE_BACKEND=s3) ---
+    s3_bucket: str = ""
+    s3_region: str = "us-east-1"
+    s3_endpoint_url: str = ""  # leave empty for AWS S3; set for MinIO/etc
+    s3_prefix: str = "z3rno"
+    s3_access_key_id: str = ""  # leave empty to use the default AWS credential chain
+    s3_secret_access_key: str = ""
+
+    # --- Tavily web search (selected via TAVILY_API_KEY) ---
+    tavily_api_key: str = ""
+    tavily_search_depth: str = "basic"  # basic | advanced
+    tavily_max_results: int = 5
+
+    # --- URL loader: opt-in Playwright fallback for JS-rendered pages ---
+    url_playwright_enabled: bool = False
+    url_playwright_min_chars: int = 200  # threshold below which we fall back
+    url_playwright_timeout_seconds: float = 30.0
+
     # API
     cors_origins: str = "http://localhost:3000,http://localhost:8000"
     api_key_header: str = "X-API-Key"
