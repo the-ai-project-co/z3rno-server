@@ -166,6 +166,15 @@ class Settings(BaseSettings):
     rate_limit_per_minute: int = 60
     rate_limit_burst: int = 10
 
+    # Celery queue-depth backpressure — when the broker has more than this
+    # many pending tasks, /v1/ingest endpoints return 503 + Retry-After so
+    # clients back off rather than piling more onto a saturated worker.
+    # Set to 0 to disable backpressure entirely.
+    celery_queue_depth_threshold: int = 1000
+    # Retry-After value returned with the 503. A short value (seconds, not
+    # minutes) since most ingest workloads drain quickly.
+    celery_queue_depth_retry_after_seconds: int = 30
+
     # Logging
     log_level: str = "INFO"
     log_format: str = "json"

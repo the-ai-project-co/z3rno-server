@@ -49,6 +49,7 @@ from z3rno_server.schemas.ingest import (
 )
 from z3rno_server.schemas.shared import ErrorResponse
 from z3rno_server.workers.ingest import _make_storage, ingest_run
+from z3rno_server.workers.queue_depth import get_queue_depth
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,32 @@ def _options_dict(req: IngestTextRequest | IngestUrlRequest) -> dict[str, Any]:
     if req.options is None:
         return {}
     return {k: v for k, v in req.options.model_dump().items() if v is not None}
+
+
+async def _check_backpressure(payload_kind: str) -> None:
+    """Reject the request with 503 when the Celery queue is too deep.
+
+    Set ``CELERY_QUEUE_DEPTH_THRESHOLD=0`` to disable the check entirely.
+    ``get_queue_depth`` fails open (returns 0) on broker errors, so a
+    transient Valkey hiccup doesn't accidentally enforce backpressure
+    on every request.
+    """
+    settings = get_settings()
+    if settings.celery_queue_depth_threshold <= 0:
+        return
+    depth = await get_queue_depth()
+    if depth > settings.celery_queue_depth_threshold:
+        INGEST_JOBS_TOTAL.labels(status="rejected", kind=payload_kind).inc()
+        retry_after = settings.celery_queue_depth_retry_after_seconds
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"ingest queue saturated ({depth} pending > "
+                f"{settings.celery_queue_depth_threshold}); retry in "
+                f"{retry_after}s"
+            ),
+            headers={"Retry-After": str(retry_after)},
+        )
 
 
 def _enqueue(
@@ -153,6 +180,8 @@ async def enqueue_ingest_json(
         }
         ingest_kind = "url"
 
+    await _check_backpressure(ingest_kind)
+
     try:
         conn = await db.connection()
         await insert_ingest_job(
@@ -221,6 +250,8 @@ async def enqueue_ingest_file(
     Celery with the file bytes (capped at ``INGEST_MAX_FILE_BYTES``)."""
     settings = get_settings()
     org_id = _get_org_id(request)
+
+    await _check_backpressure("file")
 
     raw = await file.read()
     if len(raw) == 0:
@@ -407,6 +438,8 @@ async def finalize_upload(
     """
     org_id = _get_org_id(request)
     _ = org_id  # asserts auth + RLS context
+
+    await _check_backpressure("s3_uri")
 
     conn = await db.connection()
     row = (

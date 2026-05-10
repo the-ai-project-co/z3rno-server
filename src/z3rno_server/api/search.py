@@ -34,6 +34,7 @@ from z3rno_server.schemas.search import (
 )
 from z3rno_server.schemas.shared import ErrorResponse
 from z3rno_server.workers.ingest import ingest_run
+from z3rno_server.workers.queue_depth import get_queue_depth
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +92,24 @@ async def enqueue_search_ingest(
     except SearchError as exc:
         logger.warning("ingest.search.provider_failed", extra={"error": str(exc)})
         raise HTTPException(status_code=503, detail="search provider failed") from exc
+
+    # Backpressure — if the queue is already deep, refuse early so we don't
+    # cascade N more tasks onto a saturated worker pool. Same threshold +
+    # 503 + Retry-After contract as the /v1/ingest endpoints.
+    settings = get_settings()
+    if settings.celery_queue_depth_threshold > 0:
+        depth = await get_queue_depth()
+        if depth > settings.celery_queue_depth_threshold:
+            retry_after = settings.celery_queue_depth_retry_after_seconds
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    f"ingest queue saturated ({depth} pending > "
+                    f"{settings.celery_queue_depth_threshold}); retry in "
+                    f"{retry_after}s"
+                ),
+                headers={"Retry-After": str(retry_after)},
+            )
 
     batch_id = uuid4()
     if not results:
