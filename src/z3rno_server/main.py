@@ -8,6 +8,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 
 from z3rno_server.api.api_keys import router as api_keys_router
 from z3rno_server.api.audit import router as audit_router
+from z3rno_server.api.conversations import router as conversations_router
 from z3rno_server.api.graph import router as graph_router
 from z3rno_server.api.health import router as health_router
 from z3rno_server.api.limits import router as limits_router
@@ -55,6 +56,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(limits_router)
     app.include_router(memories_router)
+    app.include_router(conversations_router)
     app.include_router(audit_router)
     app.include_router(sessions_router)
     app.include_router(api_keys_router)

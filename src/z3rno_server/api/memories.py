@@ -245,6 +245,7 @@ async def recall_memories(
             retrieval_filters=_build_retrieval_filters(get_settings()),
             memory_type=body.memory_type,
             filters=body.filters,
+            conversation_id=body.conversation_id,
             top_k=body.top_k,
             similarity_threshold=body.similarity_threshold,
             time_range=body.time_range,

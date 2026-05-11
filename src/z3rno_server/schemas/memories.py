@@ -84,6 +84,10 @@ class RecallRequest(BaseModel):
     # RedactionFilter scrubs PII per this role before the response
     # leaves the box. Unknown role → fallback_role's rules apply.
     role: str | None = None
+    # Phase G slice 2: scope recall to a single conversation. When set,
+    # only Memos whose memories.conversation_id matches are returned.
+    # Strategies inherit the filter via build_where_clause.
+    conversation_id: UUID | None = None
 
 
 class RecallResultItem(BaseModel):
