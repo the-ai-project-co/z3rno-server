@@ -79,6 +79,11 @@ class RecallRequest(BaseModel):
     # them. No-op for other strategies. When omitted, falls back to the
     # server-side MEMORY_TIER_AUTO_ROUTE default.
     tier_route: bool | None = None
+    # Phase F slice 2: caller role for compliance-graded retrieval.
+    # When RETRIEVAL_REDACTION_ENABLED=true server-side, the configured
+    # RedactionFilter scrubs PII per this role before the response
+    # leaves the box. Unknown role → fallback_role's rules apply.
+    role: str | None = None
 
 
 class RecallResultItem(BaseModel):

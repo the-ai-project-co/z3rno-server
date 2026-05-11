@@ -76,6 +76,14 @@ class Settings(BaseSettings):
     # recall body always wins over this default.
     memory_tier_auto_route: bool = False
 
+    # Phase F slice 2 — compliance-graded retrieval. When enabled, the
+    # server applies a role-aware RedactionFilter to recall results
+    # before they leave the box. Rules supplied via YAML file; an
+    # empty path uses the built-in defaults (email, SSN, credit card,
+    # US phone). Off by default — opt-in for regulated tenants.
+    retrieval_redaction_enabled: bool = False
+    retrieval_redaction_rules_path: str = ""
+
     @property
     def effective_llm_api_key(self) -> str:
         """Return LLM_API_KEY if set, otherwise fall back to OPENAI_API_KEY.

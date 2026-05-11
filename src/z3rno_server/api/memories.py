@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request
@@ -86,6 +87,28 @@ def _make_recall_llm_gateway() -> LLMGateway | None:
         timeout_seconds=settings.llm_timeout_seconds,
         max_retries=settings.llm_max_retries,
     )
+
+
+def _build_retrieval_filters(settings: Any) -> list[Any]:
+    """Phase F slice 2 — assemble the post-retrieval filter chain.
+
+    Today: a single ``RedactionFilter`` when
+    ``RETRIEVAL_REDACTION_ENABLED=true``. The chain shape is open-ended
+    so future slices can append (audit-stamping, watermarking, etc.).
+    Cached by rules-file path inside :mod:`z3rno_core.retrieval.redaction`
+    so repeated requests don't re-read the YAML.
+    """
+    if not settings.retrieval_redaction_enabled:
+        return []
+    from z3rno_core.retrieval.redaction import (  # noqa: PLC0415
+        make_redaction_filter,
+    )
+
+    return [
+        make_redaction_filter(
+            rules_path=settings.retrieval_redaction_rules_path or None,
+        ),
+    ]
 
 
 @router.post(
@@ -190,6 +213,9 @@ async def recall_memories(
                 if body.tier_route is not None
                 else get_settings().memory_tier_auto_route
             ),
+            # Phase F slice 2 — compliance-graded retrieval.
+            role=body.role,
+            retrieval_filters=_build_retrieval_filters(get_settings()),
             memory_type=body.memory_type,
             filters=body.filters,
             top_k=body.top_k,
@@ -205,8 +231,7 @@ async def recall_memories(
         raise HTTPException(
             status_code=400,
             detail=(
-                f"unknown strategy {body.strategy!r}; "
-                f"known: {', '.join(registered_strategies())}"
+                f"unknown strategy {body.strategy!r}; known: {', '.join(registered_strategies())}"
             ),
         ) from exc
     except LLMGatewayError as exc:
@@ -228,8 +253,7 @@ async def recall_memories(
         raise HTTPException(
             status_code=403,
             detail=(
-                "CYPHER strategy is disabled on this server "
-                "(set ALLOW_CYPHER_QUERY=true to enable)"
+                "CYPHER strategy is disabled on this server (set ALLOW_CYPHER_QUERY=true to enable)"
             ),
         ) from exc
     except CypherValidationError as exc:
