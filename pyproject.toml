@@ -51,6 +51,12 @@ worker = [
   "celery[redis]>=5.4.0",
 ]
 
+[project.scripts]
+# v0.20.2 — long-running NOTIFY listener that fires the audit drain
+# when ``audit_log_pending`` gets a new row. Deploys as a singleton
+# pod alongside beat. Gated on Z3RNO_AUDIT_LISTEN_ENABLED=true.
+z3rno-audit-listener = "z3rno_server.workers.audit_listener:main"
+
 [dependency-groups]
 dev = [
   "pytest>=8.3.0",
