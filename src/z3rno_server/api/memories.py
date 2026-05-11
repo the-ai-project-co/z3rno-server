@@ -232,6 +232,12 @@ async def recall_memories(
         response = await recall(
             read_conn,
             write_conn=write_conn,
+            # v0.20.5 — async recall_count bump. ``db.bind`` is the
+            # primary engine; the fire-and-forget task opens its own
+            # short-lived conn so it can survive past the request's
+            # ``await db.close()`` cleanup.
+            write_engine=db.bind,
+            bump_counters_async=True,
             org_id=org_id,
             agent_id=body.agent_id,
             query=body.query,
