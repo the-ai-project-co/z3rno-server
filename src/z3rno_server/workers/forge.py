@@ -181,6 +181,7 @@ def forge_distill(
                     chunk_overlap=settings.distill_chunk_overlap,
                     max_concurrency=settings.distill_max_concurrency,
                     summary_style=settings.distill_summary_style,
+                    provenance_required=settings.distill_provenance_required,
                 ),
             )
             summary = await pipeline.run(

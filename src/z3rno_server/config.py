@@ -64,6 +64,12 @@ class Settings(BaseSettings):
     distill_max_concurrency: int = 4  # asyncio.Semaphore for per-job LLM calls
     distill_summary_style: str = "concise"  # concise | bullet | abstractive
 
+    # Phase F slice 1 — when true, the Forge aborts the transaction if
+    # it can't stamp distill_provenance + a matching distill audit-chain
+    # entry on every Memo. Off by default; flip on for regulated tenants
+    # who need the per-Memo audit guarantee.
+    distill_provenance_required: bool = False
+
     @property
     def effective_llm_api_key(self) -> str:
         """Return LLM_API_KEY if set, otherwise fall back to OPENAI_API_KEY.
