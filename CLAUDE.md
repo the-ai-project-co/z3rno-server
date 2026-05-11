@@ -176,3 +176,8 @@ RequestId -> Logging -> Auth -> RateLimit -> Route Handler
 `docker-compose.dev.yml` runs 4 services: postgres (z3rno-postgres:17), valkey, server, worker. All on the `z3rno` network. Postgres uses platform: linux/amd64 for Apple Silicon compatibility.
 
 `docker-compose.prod.yml` runs the same services plus Traefik for TLS termination. Uses required env vars, resource limits, health checks, password-protected Valkey, and real Celery worker command.
+
+## Published images
+
+- `ghcr.io/the-ai-project-co/z3rno-postgres:17` — Postgres + pgvector + AGE + pg_cron, built from z3rno-core.
+- `ghcr.io/the-ai-project-co/z3rno-server:latest` — this server. Built + pushed by `.github/workflows/server-image.yml` on every main commit (also tagged `main-<sha>`); release tags publish `vX.Y.Z`. Downstream consumers (starter-kit compose, evals CI) drop their from-source bootstrap once this image is available.
