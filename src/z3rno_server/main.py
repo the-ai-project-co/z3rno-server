@@ -118,6 +118,11 @@ def create_app() -> FastAPI:
     # latency histograms, and error rates. Exposed at GET /metrics.
     Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
+    # Phase G slice 7 — OpenTelemetry. No-op when OTEL_ENABLED=false.
+    from z3rno_server.observability.tracing import setup_observability  # noqa: PLC0415
+
+    setup_observability(app, settings)
+
     return app
 
 

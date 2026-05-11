@@ -14,9 +14,12 @@ from z3rno_server.observability.ingest_metrics import (
     INGEST_PIPELINE_DURATION_SECONDS,
     record_ingest_outcome,
 )
+from z3rno_server.observability.tracing import setup_observability, trace_span
 
 __all__ = [
     "INGEST_JOBS_TOTAL",
     "INGEST_PIPELINE_DURATION_SECONDS",
     "record_ingest_outcome",
+    "setup_observability",
+    "trace_span",
 ]

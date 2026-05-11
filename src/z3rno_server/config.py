@@ -130,6 +130,18 @@ class Settings(BaseSettings):
     usage_budget_monthly_llm_calls: int = 0
     usage_budget_monthly_embeddings: int = 0
 
+    # Phase G slice 7 — OpenTelemetry tracing. Off by default; when
+    # enabled, the server initialises a TracerProvider, instruments
+    # FastAPI (per-route spans for the seven Z3rno verbs land
+    # automatically), and exports spans via OTLP/gRPC to the
+    # configured endpoint. W3C ``traceparent`` headers propagate
+    # outbound (LLM gateway, downstream HTTP). Service.name +
+    # deployment.environment are stamped on every span.
+    otel_enabled: bool = False
+    otel_service_name: str = "z3rno-server"
+    otel_environment: str = "production"
+    otel_exporter_otlp_endpoint: str = ""
+
     @property
     def effective_llm_api_key(self) -> str:
         """Return LLM_API_KEY if set, otherwise fall back to OPENAI_API_KEY.

@@ -37,6 +37,13 @@ dependencies = [
   "structlog>=24.4.0",
   # Observability
   "prometheus-fastapi-instrumentator>=7.0.0",
+  # Phase G slice 7 — OpenTelemetry. The SDK + FastAPI instrumentation
+  # are always installed; the OTLP exporter only wires up when
+  # OTEL_ENABLED=true so a non-instrumented deploy has zero overhead.
+  "opentelemetry-api>=1.28.0",
+  "opentelemetry-sdk>=1.28.0",
+  "opentelemetry-instrumentation-fastapi>=0.49b0",
+  "opentelemetry-exporter-otlp-proto-grpc>=1.28.0",
 ]
 
 [project.optional-dependencies]
