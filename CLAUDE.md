@@ -29,6 +29,8 @@ make dev-psql                    # Connect to postgres shell
 
 ## API Endpoints
 
+> Canonical surface = seven Z3rno verbs (`store`, `recall`, `forget`, `audit`, `ingest`, `distill`, `refine`). See `../z3rno-docs/concepts/verbs.mdx` for the public-facing reference.
+
 - `POST /v1/memories` — Store memory (calls z3rno_core.engine.store)
 - `POST /v1/memories/recall` — Recall by query (calls z3rno_core.engine.recall)
 - `POST /v1/memories/forget` — Forget/delete (calls z3rno_core.engine.forget)
