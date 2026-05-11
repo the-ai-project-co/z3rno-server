@@ -8,6 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Request
 from sqlalchemy import text as sa_text
 
+from z3rno_core.distill.llm_gateway import LLMGatewayError
 from z3rno_core.engine import (
     MemoryNotFoundError,
     NoOpEmbeddingProvider,
@@ -22,6 +23,7 @@ from z3rno_core.engine import (
 from z3rno_core.engine.forget import ForgetError
 from z3rno_core.engine.store import RelationshipInput as EngineRelInput
 from z3rno_core.models.enums import MemoryType
+from z3rno_core.retrieval import UnknownStrategyError, registered_strategies
 from z3rno_server.dependencies import DbSession
 from z3rno_server.middleware.rbac import require_role
 from z3rno_server.schemas.memories import (
@@ -134,22 +136,45 @@ async def recall_memories(
     org_id = _get_org_id(request)
 
     conn = await db.connection()
-    response = await recall(
-        conn,
-        org_id=org_id,
-        agent_id=body.agent_id,
-        query=body.query,
-        strategy=body.strategy,
-        embedding_provider=NoOpEmbeddingProvider() if body.query else None,
-        memory_type=body.memory_type,
-        filters=body.filters,
-        top_k=body.top_k,
-        similarity_threshold=body.similarity_threshold,
-        time_range=body.time_range,
-        as_of=body.as_of,
-        include_deleted=body.include_deleted,
-        request_id=getattr(request.state, "request_id", None),
-    )
+    try:
+        response = await recall(
+            conn,
+            org_id=org_id,
+            agent_id=body.agent_id,
+            query=body.query,
+            strategy=body.strategy,
+            embedding_provider=NoOpEmbeddingProvider() if body.query else None,
+            memory_type=body.memory_type,
+            filters=body.filters,
+            top_k=body.top_k,
+            similarity_threshold=body.similarity_threshold,
+            time_range=body.time_range,
+            as_of=body.as_of,
+            include_deleted=body.include_deleted,
+            request_id=getattr(request.state, "request_id", None),
+        )
+    except UnknownStrategyError as exc:
+        # Bad ``strategy=`` value — 400 with the known list so SDK clients
+        # can self-correct without spelunking server logs.
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"unknown strategy {body.strategy!r}; "
+                f"known: {', '.join(registered_strategies())}"
+            ),
+        ) from exc
+    except LLMGatewayError as exc:
+        # Strategy requires an LLM but the server hasn't been configured
+        # with one (e.g. TRIPLET on a deployment without an LLM_API_KEY).
+        # 400 because the request named a strategy that requires server-
+        # side configuration the operator hasn't enabled.
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"strategy {body.strategy!r} requires an LLM gateway, "
+                "which is not configured on this server"
+            ),
+        ) from exc
 
     # Phase C: response is a RecallResponse wrapper around StrategyResult.
     # Each StrategyResult carries score_components instead of a flat
