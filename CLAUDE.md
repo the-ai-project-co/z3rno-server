@@ -80,6 +80,10 @@ See `../z3rno-process-docs/improvements/PHASE-B1-IMPLEMENTATION.md` for full ope
 
 See `../z3rno-process-docs/improvements/PHASE-B2-IMPLEMENTATION.md` for full operator reference.
 
+### Phase G slice 1 — Read-replica routing (opt-in)
+
+When ``DATABASE_READ_URL`` is set, pure-read GET endpoints route their SELECTs to the replica via a new ``ReadDbSession`` dependency. Replica WAL replay lag is checked at session-acquire time; if it exceeds ``READ_REPLICA_LAG_THRESHOLD_SECONDS`` (default 5.0) the request transparently falls back to the primary so a lagging replica can never serve stale reads. Routed today: ``GET /v1/audit``, ``GET /v1/memories/{id}``, ``GET /v1/memories/{id}/history``, ``GET /v1/datasets``, ``GET /v1/datasets/{id}``, ``GET /v1/forget/{cert_id}``, ``GET /v1/graph/data``. POST /v1/memories/recall stays on primary (write-back of recall_count + last_recalled_at). Config: ``DATABASE_READ_URL``, ``READ_REPLICA_LAG_CHECK_ENABLED`` (default true), ``READ_REPLICA_LAG_THRESHOLD_SECONDS`` (default 5.0).
+
 ### Phase D — Refine + Feedback (registered only when `REFINE_ENABLED=true`)
 
 - `POST /v1/feedback` — record a -1/0/+1 signal on a Memo (`memory_id`) or AGE edge (`edge_id`); RBAC: admin/write. Exactly-one-of enforced at Pydantic + DB CHECK.

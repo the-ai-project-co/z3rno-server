@@ -24,6 +24,17 @@ class Settings(BaseSettings):
     database_pool_size: int = 20
     database_max_overflow: int = 10
 
+    # Phase G slice 1 — read-replica routing. When ``database_read_url``
+    # is set, read-only GET endpoints route their SELECTs to the
+    # replica. The replica's WAL replay lag is checked at session
+    # acquire time; if it exceeds ``read_replica_lag_threshold_seconds``
+    # the request falls back to the primary so a lagging replica can
+    # never serve stale reads. Off by default (empty URL → all traffic
+    # goes to primary, byte-identical to pre-G.1).
+    database_read_url: str = ""
+    read_replica_lag_check_enabled: bool = True
+    read_replica_lag_threshold_seconds: float = 5.0
+
     # Valkey (accepts VALKEY_URL; falls back to REDIS_URL for backward compat)
     valkey_url: str = ""
     redis_url: str = "redis://localhost:6379/0"  # backward-compat fallback

@@ -54,6 +54,10 @@ def app_on() -> Iterator[TestClient]:
 
     app.dependency_overrides[get_db] = _fake_db_session
 
+    from z3rno_server.dependencies import get_read_db as _grd_for_override
+
+    app.dependency_overrides[_grd_for_override] = _fake_db_session
+
     with (
         patch(
             "z3rno_server.middleware.rate_limit._check_rate_limit",

@@ -24,7 +24,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import text as sa_text
 from sqlalchemy.exc import IntegrityError
 
-from z3rno_server.dependencies import DbSession
+from z3rno_server.dependencies import DbSession, ReadDbSession
 from z3rno_server.middleware.rbac import require_role
 from z3rno_server.schemas.datasets import (
     DatasetCreate,
@@ -145,7 +145,7 @@ async def create_dataset(
 )
 async def list_datasets(
     request: Request,
-    db: DbSession,
+    db: ReadDbSession,
     _rbac: None = require_role("admin", "write", "read"),
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
@@ -191,7 +191,7 @@ async def list_datasets(
 async def get_dataset(
     dataset_id: UUID,
     request: Request,
-    db: DbSession,
+    db: ReadDbSession,
     _rbac: None = require_role("admin", "write", "read"),
 ) -> DatasetResponse:
     _ = _get_org_id(request)

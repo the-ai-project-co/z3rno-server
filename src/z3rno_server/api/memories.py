@@ -31,7 +31,7 @@ from z3rno_core.retrieval.strategies.cypher import (
     CypherValidationError,
 )
 from z3rno_server.config import get_settings
-from z3rno_server.dependencies import DbSession
+from z3rno_server.dependencies import DbSession, ReadDbSession
 from z3rno_server.middleware.rbac import require_role
 from z3rno_server.schemas.memories import (
     BatchStoreRequest,
@@ -445,7 +445,7 @@ async def batch_store_memories(
 async def get_memory_by_id(
     memory_id: UUID,
     request: Request,
-    db: DbSession,
+    db: ReadDbSession,
     _rbac: None = require_role("admin", "write", "read"),
 ) -> MemoryResponse:
     """Retrieve a single memory by its UUID."""
@@ -479,7 +479,7 @@ async def get_memory_by_id(
 async def get_memory_history_endpoint(
     memory_id: UUID,
     request: Request,
-    db: DbSession,
+    db: ReadDbSession,
     _rbac: None = require_role("admin", "write", "read"),
 ) -> MemoryHistoryResponse:
     """Return all temporal versions of a memory (SCD Type 2 history)."""

@@ -15,7 +15,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import text as sa_text
 
-from z3rno_server.dependencies import DbSession
+from z3rno_server.dependencies import ReadDbSession
 from z3rno_server.middleware.rbac import require_role
 
 router = APIRouter(prefix="/v1/forget", tags=["forget"])
@@ -57,7 +57,7 @@ def _get_org_id(request: Request) -> UUID:
 async def get_forget_certificate(
     cert_id: UUID,
     request: Request,
-    db: DbSession,
+    db: ReadDbSession,
     _rbac: None = require_role("admin", "write", "read"),
 ) -> ForgetCertificateResponse:
     org_id = _get_org_id(request)

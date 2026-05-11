@@ -45,6 +45,10 @@ def app() -> Iterator[TestClient]:
 
     fastapi_app.dependency_overrides[get_db] = _fake_db_session
 
+    from z3rno_server.dependencies import get_read_db as _grd_for_override
+
+    fastapi_app.dependency_overrides[_grd_for_override] = _fake_db_session
+
     with patch(
         "z3rno_server.middleware.rate_limit._check_rate_limit",
         new_callable=AsyncMock,
@@ -146,8 +150,10 @@ def test_no_edge_query_when_node_set_is_empty(app: TestClient) -> None:
         assert conn.execute.await_count == 1
 
     from z3rno_server.dependencies import get_db
+    from z3rno_server.dependencies import get_read_db as _grd_for_override
 
     app.app.dependency_overrides[get_db] = _instrumented_db
+    app.app.dependency_overrides[_grd_for_override] = _instrumented_db
     try:
         r = app.get(
             "/v1/graph/data",
@@ -158,3 +164,4 @@ def test_no_edge_query_when_node_set_is_empty(app: TestClient) -> None:
     finally:
         # Restore the original fixture override.
         app.app.dependency_overrides[get_db] = _fake_db_session
+        app.app.dependency_overrides[_grd_for_override] = _fake_db_session

@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from z3rno_core.engine import audit
-from z3rno_server.dependencies import DbSession
+from z3rno_server.dependencies import ReadDbSession
 from z3rno_server.middleware.rbac import require_role
 from z3rno_server.schemas.audit import AuditEntryResponse, AuditPageResponse, AuditQueryParams
 from z3rno_server.schemas.shared import ErrorResponse
@@ -31,7 +31,7 @@ def _get_org_id(request: Request) -> UUID:
 )
 async def query_audit(
     request: Request,
-    db: DbSession,
+    db: ReadDbSession,
     params: AuditQueryParams = Depends(),  # noqa: B008
     _rbac: None = require_role("admin", "write", "read"),
 ) -> AuditPageResponse:

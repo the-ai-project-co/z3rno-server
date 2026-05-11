@@ -63,6 +63,10 @@ def app_on() -> Iterator[TestClient]:
 
     app.dependency_overrides[get_db] = _fake_db_session
 
+    from z3rno_server.dependencies import get_read_db as _grd_for_override
+
+    app.dependency_overrides[_grd_for_override] = _fake_db_session
+
     fake_tavily = MagicMock()
     fake_tavily.search.return_value = {
         "results": [

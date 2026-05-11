@@ -23,7 +23,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import text as sa_text
 
-from z3rno_server.dependencies import DbSession
+from z3rno_server.dependencies import ReadDbSession
 from z3rno_server.middleware.rbac import require_role
 from z3rno_server.schemas.graph import (
     GraphDataResponse,
@@ -65,7 +65,7 @@ def _get_org_id(request: Request) -> UUID:
 )
 async def get_graph_data(
     request: Request,
-    db: DbSession,
+    db: ReadDbSession,
     _rbac: None = require_role("admin", "write", "read"),
     dataset_id: Annotated[UUID | None, Query()] = None,
     agent_id: Annotated[UUID | None, Query()] = None,

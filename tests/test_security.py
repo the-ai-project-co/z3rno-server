@@ -42,6 +42,10 @@ async def authed_client():  # type: ignore[no-untyped-def]
         yield session
 
     app.dependency_overrides[get_db] = _mock_get_db
+
+    from z3rno_server.dependencies import get_read_db as _grd_for_override
+
+    app.dependency_overrides[_grd_for_override] = _mock_get_db
     transport = ASGITransport(app=app)
     # Patch the rate limit check to always allow (avoids Redis dependency)
     with patch(
