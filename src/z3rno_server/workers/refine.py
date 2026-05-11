@@ -137,3 +137,85 @@ def refine_run(
     except Exception as exc:
         logger.exception("refine_run failed; will retry (job_id=%s)", job_id)
         raise self.retry(exc=exc, countdown=2**self.request.retries) from exc
+
+
+# ---------------------------------------------------------------------------
+# v0.19.4 — multi-tenant refine fan-out (beat-driven)
+# ---------------------------------------------------------------------------
+
+
+@celery_app.task(name="z3rno.refine_scheduler_tick")
+def refine_scheduler_tick() -> dict[str, Any]:
+    """Fair round-robin dispatcher.
+
+    Picks up to ``REFINE_MAX_PER_TICK`` opted-in tenants (oldest
+    ``refine_last_run_at`` first) and enqueues a ``z3rno.refine_run``
+    task for each. Returns a JSON summary for the beat result log.
+
+    Idempotent under concurrent ticks: the picker uses
+    ``FOR UPDATE SKIP LOCKED``, so two beat singletons racing the
+    same row never double-dispatch.
+    """
+    settings = get_settings()
+    if not settings.refine_enabled:
+        logger.debug("refine_scheduler_tick skipped (REFINE_ENABLED=false)")
+        return {"status": "skipped", "reason": "refine_disabled"}
+
+    async def _run() -> dict[str, Any]:
+        from z3rno_core.refine.scheduler import (
+            mark_refine_dispatched,
+            pick_refine_tenants,
+        )
+
+        engine = _make_engine(settings)
+        try:
+            dispatched: list[str] = []
+            async with engine.begin() as conn:
+                tenants = await pick_refine_tenants(
+                    conn, limit=settings.refine_max_per_tick
+                )
+                if not tenants:
+                    return {"status": "ok", "dispatched": []}
+                from uuid import uuid4 as _uuid4
+
+                for t in tenants:
+                    # Worker-side INSERT of refine_jobs row keeps the
+                    # API contract (job_id visible immediately).
+                    rj_id = _uuid4()
+                    await conn.execute(
+                        text(
+                            "INSERT INTO refine_jobs (job_id, org_id, status, trigger) "
+                            "VALUES (CAST(:jid AS uuid), CAST(:org AS uuid), 'queued', 'beat')"
+                        ),
+                        {"jid": str(rj_id), "org": str(t.org_id)},
+                    )
+                    await mark_refine_dispatched(conn, org_id=t.org_id)
+                    celery_app.send_task(
+                        "z3rno.refine_run",
+                        kwargs={
+                            "job_id": str(rj_id),
+                            "org_id": str(t.org_id),
+                            "trigger": "beat",
+                        },
+                    )
+                    dispatched.append(str(t.org_id))
+            return {"status": "ok", "dispatched": dispatched}
+        finally:
+            await engine.dispose()
+
+    return asyncio.run(_run())
+
+
+# Beat-schedule registration. Registered iff REFINE_ENABLED AND
+# REFINE_BEAT_INTERVAL_SECONDS > 0; otherwise the task is still
+# defined but won't fire on its own — on-demand POST /v1/refine and
+# manual celery_app.send_task("z3rno.refine_scheduler_tick") still work.
+_settings_for_beat = get_settings()
+if _settings_for_beat.refine_enabled and _settings_for_beat.refine_beat_interval_seconds > 0:
+    celery_app.conf.beat_schedule = {
+        **getattr(celery_app.conf, "beat_schedule", {}),
+        "z3rno-refine-scheduler-tick": {
+            "task": "z3rno.refine_scheduler_tick",
+            "schedule": _settings_for_beat.refine_beat_interval_seconds,
+        },
+    }

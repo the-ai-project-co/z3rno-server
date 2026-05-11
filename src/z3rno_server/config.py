@@ -130,6 +130,15 @@ class Settings(BaseSettings):
     usage_budget_monthly_llm_calls: int = 0
     usage_budget_monthly_embeddings: int = 0
 
+    # v0.19.4 — multi-tenant refine scheduler. Beat picks up to
+    # ``refine_max_per_tick`` opted-in tenants
+    # (``tenants.refine_enabled IS TRUE``) every
+    # ``refine_beat_interval_seconds`` and enqueues a refine_run for
+    # each. Fair round-robin via ``tenants.refine_last_run_at``. Set
+    # interval to 0 to disable the scheduler entirely (on-demand only).
+    refine_max_per_tick: int = 10
+    refine_beat_interval_seconds: int = 0
+
     # Phase G slice 7 — OpenTelemetry tracing. Off by default; when
     # enabled, the server initialises a TracerProvider, instruments
     # FastAPI (per-route spans for the seven Z3rno verbs land
