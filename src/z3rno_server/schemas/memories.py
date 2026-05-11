@@ -73,6 +73,12 @@ class RecallRequest(BaseModel):
     # Honoured only when ALLOW_CYPHER_QUERY=true on the server; the
     # strategy itself enforces the gate (returns 403 when off).
     raw_cypher: str | None = None
+    # Phase F slice 4: opt-in 4-tier memory routing. With strategy=AUTO
+    # and no explicit memory_type, the server asks the MemoryTierRouter
+    # for one or more tiers and fans the delegate strategy out across
+    # them. No-op for other strategies. When omitted, falls back to the
+    # server-side MEMORY_TIER_AUTO_ROUTE default.
+    tier_route: bool | None = None
 
 
 class RecallResultItem(BaseModel):

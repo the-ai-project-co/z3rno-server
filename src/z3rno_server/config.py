@@ -70,6 +70,12 @@ class Settings(BaseSettings):
     # who need the per-Memo audit guarantee.
     distill_provenance_required: bool = False
 
+    # Phase F slice 4 — when true, AUTO recall asks the MemoryTierRouter
+    # for one or more tiers and fans the delegate strategy out across
+    # them. Off by default; per-request opt-in via tier_route in the
+    # recall body always wins over this default.
+    memory_tier_auto_route: bool = False
+
     @property
     def effective_llm_api_key(self) -> str:
         """Return LLM_API_KEY if set, otherwise fall back to OPENAI_API_KEY.

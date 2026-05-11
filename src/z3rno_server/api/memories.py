@@ -184,6 +184,12 @@ async def recall_memories(
             # CypherDisabledError which we map to 403 below.
             allow_cypher_query=get_settings().allow_cypher_query,
             raw_cypher=body.raw_cypher,
+            # Phase F slice 4 — per-request override beats server default.
+            tier_route=(
+                body.tier_route
+                if body.tier_route is not None
+                else get_settings().memory_tier_auto_route
+            ),
             memory_type=body.memory_type,
             filters=body.filters,
             top_k=body.top_k,
