@@ -41,6 +41,7 @@ make dev-psql                    # Connect to postgres shell
 - `GET /v1/ready` — Readiness probe
 - `GET /v1/worker/health` — Celery worker healthcheck (public, no auth)
 - `GET /metrics` — Prometheus metrics (public, no auth)
+- `GET /v1/graph/data` — Memo subgraph (nodes + edges) for the `/graph` viewer; RLS-isolated; always registered.
 
 ### Phase A — Forge (registered only when `DISTILL_ENABLED=true`)
 

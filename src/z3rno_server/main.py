@@ -8,6 +8,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 
 from z3rno_server.api.api_keys import router as api_keys_router
 from z3rno_server.api.audit import router as audit_router
+from z3rno_server.api.graph import router as graph_router
 from z3rno_server.api.health import router as health_router
 from z3rno_server.api.limits import router as limits_router
 from z3rno_server.api.memories import router as memories_router
@@ -58,6 +59,10 @@ def create_app() -> FastAPI:
     app.include_router(sessions_router)
     app.include_router(api_keys_router)
     app.include_router(worker_router)
+    # /v1/graph/data — Phase E viewer surface. Read-only, always
+    # registered: returns empty nodes/edges when no data is in scope,
+    # so it's safe even before the Phase A-D flags are flipped.
+    app.include_router(graph_router)
 
     # Phase A — gated. The /v1/distill router is only registered when the
     # operator opts in via DISTILL_ENABLED=true. With the flag off the
