@@ -1,0 +1,45 @@
+{
+  "_description": "Acceptance thresholds for the Phase 3 cluster validations. Each script under this directory reads the matching block and exits non-zero when a floor is missed.",
+  "stress.10k_read": {
+    "rps_min": 5000,
+    "p95_max_ms": 1000,
+    "error_rate_max": 0.001
+  },
+  "stress.10k_write": {
+    "rps_min": 2000,
+    "p95_max_ms": 2000,
+    "error_rate_max": 0.001
+  },
+  "stress.10k_mixed": {
+    "rps_min": 3000,
+    "p95_max_ms": 1500,
+    "error_rate_max": 0.001
+  },
+  "drainer.sustained": {
+    "_scenario": "1k+ RPS write sustained for 10 minutes",
+    "pending_rows_max": 10000,
+    "lag_p95_seconds_max": 60
+  },
+  "drainer.backlog": {
+    "_scenario": "pre-seed 100k pending rows then halt writes — measure drain rate",
+    "drain_rate_rows_per_s_min": 2000
+  },
+  "drainer.notify_listen": {
+    "_scenario": "NOTIFY/LISTEN drain (v0.20+) under sustained write load",
+    "drain_latency_p95_ms_max": 500
+  },
+  "smoke.helm": {
+    "_scenario": "helm install on a fresh kind/GKE/EKS — every pod ready inside 3 minutes, GET /v1/health 200",
+    "ready_within_seconds_max": 180,
+    "health_http_max_ms": 500
+  },
+  "failover.cross_region": {
+    "_scenario": "primary region offline; traffic served from secondary inside 60s with < 0.5% error spike",
+    "rto_seconds_max": 60,
+    "error_spike_max": 0.005
+  },
+  "auto_routing": {
+    "_scenario": "LLM-side AUTO classifier accuracy on retrieval_auto_routing.jsonl",
+    "accuracy_min": 0.80
+  }
+}
