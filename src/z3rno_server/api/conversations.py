@@ -23,6 +23,7 @@ from z3rno_core.conversations import (
     ConversationNotFoundError,
     add_turn,
     create_conversation,
+    delete_conversation,
     get_conversation,
     list_turns,
     needs_summary,
@@ -200,3 +201,31 @@ async def get_turns(
         total=len(rows),
         conversation_id=conversation_id,
     )
+
+
+@router.delete(
+    "/{conversation_id}",
+    status_code=204,
+    responses={401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
+    summary="Soft-delete a conversation",
+)
+async def delete_one_conversation(
+    conversation_id: UUID,
+    request: Request,
+    db: DbSession,
+    _rbac: None = require_role("admin", "write"),
+) -> None:
+    """v0.19.3 — sets ``deleted_at`` on the conversation row.
+
+    Existing turn Memos stay queryable via the standard recall
+    surface (so audit/history isn't lost); the conversation just no
+    longer accepts new turns and its endpoints 404. Idempotent on
+    repeated DELETEs.
+    """
+    org_id = _get_org_id(request)
+    conn = await db.connection()
+    deleted = await delete_conversation(
+        conn, org_id=org_id, conversation_id=conversation_id
+    )
+    if not deleted:
+        raise HTTPException(status_code=404, detail="conversation not found")
