@@ -76,6 +76,42 @@ def _make_gateway(settings: Settings) -> Any:
     )
 
 
+def _make_ontology_resolver(settings: Settings) -> object | None:
+    """Construct an :class:`OntologyResolver` when the operator opted in.
+
+    Returns ``None`` when ``ONTOLOGY_RESOLVER=none`` (default) — the
+    Forge pipeline then skips grounding entirely. Construction is
+    lazy-imported so deployments that never set the flag don't need
+    the ``[ontology]`` extra.
+    """
+    if settings.ontology_resolver == "none":
+        return None
+    if settings.ontology_resolver != "rdflib":
+        logger.warning(
+            "forge: unknown ONTOLOGY_RESOLVER=%r; resolver disabled",
+            settings.ontology_resolver,
+        )
+        return None
+    if not settings.ontology_file_path:
+        logger.warning(
+            "forge: ONTOLOGY_RESOLVER=rdflib but ONTOLOGY_FILE_PATH empty; resolver disabled"
+        )
+        return None
+    try:
+        from z3rno_core.ontology import OntologyResolver, load_ontology
+
+        index = load_ontology(settings.ontology_file_path)
+    except Exception as exc:
+        logger.warning("forge: ontology load failed (%s); resolver disabled", exc)
+        return None
+    resolver: object = OntologyResolver(
+        index,
+        strategy=settings.ontology_matching_strategy,
+        fuzzy_threshold=settings.ontology_fuzzy_threshold,
+    )
+    return resolver
+
+
 def _make_embedding_provider(settings: Settings) -> EmbeddingProvider | None:
     """Embeddings for Forge-written Memos.
 
@@ -139,6 +175,7 @@ def forge_distill(
             pipeline = ForgePipeline(
                 gateway=gateway,
                 embedding_provider=embedding_provider,
+                ontology_resolver=_make_ontology_resolver(settings),
                 options=ForgeOptions(
                     chunk_size=settings.distill_chunk_size,
                     chunk_overlap=settings.distill_chunk_overlap,

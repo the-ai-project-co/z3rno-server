@@ -74,6 +74,21 @@ See `../z3rno-process-docs/improvements/PHASE-B1-IMPLEMENTATION.md` for full ope
 
 See `../z3rno-process-docs/improvements/PHASE-B2-IMPLEMENTATION.md` for full operator reference.
 
+### Phase D — Refine + Feedback (registered only when `REFINE_ENABLED=true`)
+
+- `POST /v1/feedback` — record a -1/0/+1 signal on a Memo (`memory_id`) or AGE edge (`edge_id`); RBAC: admin/write. Exactly-one-of enforced at Pydantic + DB CHECK.
+- `POST /v1/refine` — enqueue a refine run; returns `202` + `job_id`. RBAC: admin only (refine mutates Memos via dedupe).
+- `GET /v1/refine/{job_id}` — poll job state (RLS-isolated → 404 cross-tenant); RBAC: admin/write/read.
+
+The Celery task `z3rno.refine_run` runs the pipeline asynchronously. With `REFINE_ENABLED=false` (default), the routes are not registered and the worker self-rejects messages — OpenAPI is byte-identical to pre-Phase-D.
+
+Optional capability flags (each independent of the others):
+- `ONTOLOGY_RESOLVER=rdflib` + `ONTOLOGY_FILE_PATH=...` → Forge grounds distilled entities to OWL URIs. Requires `[ontology]` extra in z3rno-core.
+- `REFINE_INFER_ENABLED=true` and/or `REFINE_SUMMARIZE_ENABLED=true` → LLM-driven refine stages. Reuses the Phase A `LLM_*` keys.
+- `CODEGRAPH_ENABLED=true` → ingest of Python/TypeScript sources also writes function-level call graph. Requires `[codegraph]` extra in z3rno-core. Surfaces via the new `CODE` retrieval strategy.
+
+See `../z3rno-process-docs/improvements/PHASE-D-IMPLEMENTATION.md` for full operator reference.
+
 ## Middleware Chain (order matters)
 
 RequestId -> Logging -> Auth -> RateLimit -> Route Handler
@@ -137,6 +152,21 @@ RequestId -> Logging -> Auth -> RateLimit -> Route Handler
 - `TAVILY_SEARCH_DEPTH` (default: `basic`) / `TAVILY_MAX_RESULTS` (default: `5`)
 - `URL_PLAYWRIGHT_ENABLED` (default: `false`); requires `pip install 'z3rno-core[playwright]'`
 - `URL_PLAYWRIGHT_TIMEOUT_SECONDS` (default: `30`)
+
+### Phase D — Refine + Ontology + Codegraph (all default to dormant)
+
+- `REFINE_ENABLED` — Master switch (default: `false`). When `false`, `/v1/feedback` and `/v1/refine` are not registered and the worker self-rejects.
+- `REFINE_SCHEDULE` — Cron expression for beat scheduler (default: `cron:0 */6 * * *`). Plumbed; multi-tenant fan-out is a follow-up.
+- `FEEDBACK_WEIGHT_DECAY` — EMA blend factor per refine cycle (default: `0.95`).
+- `ONTOLOGY_RESOLVER` — `none` (default) or `rdflib`. Requires `pip install 'z3rno-core[ontology]'` when `rdflib`.
+- `ONTOLOGY_FILE_PATH` — Path to OWL/TTL/RDF file (required when `ONTOLOGY_RESOLVER=rdflib`)
+- `ONTOLOGY_MATCHING_STRATEGY` — `exact` or `fuzzy` (default: `fuzzy`)
+- `ONTOLOGY_FUZZY_THRESHOLD` — Minimum score 0..1 for fuzzy match (default: `0.80`)
+- `REFINE_INFER_ENABLED` (default: `false`) — LLM proposes edges for under-connected Memos
+- `REFINE_SUMMARIZE_ENABLED` (default: `false`) — LLM writes per-cluster SUMMARY Memos with cluster-hash cache
+- `REFINE_INFER_MAX_CANDIDATES` (default: `50`) — Per-cycle LLM call cap
+- `CODEGRAPH_ENABLED` (default: `false`) — Run tree-sitter extractor during ingest of code sources; requires `pip install 'z3rno-core[codegraph]'`
+- `CODEGRAPH_LANGUAGES` (default: `python,typescript`) — Comma-separated allowlist
 
 ## Docker Compose
 

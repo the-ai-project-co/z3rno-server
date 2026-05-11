@@ -283,6 +283,9 @@ def ingest_run(
                 chunk_size=(options or {}).get("chunk_size", settings.ingest_default_chunk_size),
                 chunk_overlap=(options or {}).get("chunk_overlap", settings.distill_chunk_overlap),
                 summary_style=(options or {}).get("summary_style", settings.distill_summary_style),
+                codegraph_enabled=(options or {}).get(
+                    "codegraph_enabled", settings.codegraph_enabled
+                ),
             )
             post_ingest = (
                 _build_post_ingest(

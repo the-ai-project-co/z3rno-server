@@ -147,6 +147,46 @@ class Settings(BaseSettings):
     url_playwright_min_chars: int = 200  # threshold below which we fall back
     url_playwright_timeout_seconds: float = 30.0
 
+    # =========================================================================
+    # Phase D — Graph Intelligence (refine, ontology, feedback).
+    # All Phase D surfaces are dormant unless REFINE_ENABLED=true.
+    # When false, /v1/feedback is not registered and the eventual
+    # refine() Celery task (slice 3) will self-reject.
+    # =========================================================================
+    refine_enabled: bool = False
+
+    # Slice 3 will read these; declared now so the env-var surface stays
+    # stable across slices and operators only edit config once.
+    refine_schedule: str = "cron:0 */6 * * *"  # cron expression for beat scheduler
+    feedback_weight_decay: float = 0.95  # exponential decay applied per refine cycle
+
+    # --- Slice 4: ontology grounding ---
+    # ``none`` (default) → skip resolver; Forge writes ontology_uri NULL.
+    # ``rdflib`` → load OWL/TTL from ONTOLOGY_FILE_PATH via the rdflib
+    # extra and resolve every distilled Entity to a canonical URI.
+    ontology_resolver: str = "none"  # none | rdflib
+    ontology_file_path: str = ""
+    ontology_matching_strategy: str = "fuzzy"  # exact | fuzzy
+    ontology_fuzzy_threshold: float = 0.80
+
+    # --- Slice 4: refine infer + summarize stages ---
+    # Both are opt-in; default off so a flag-on REFINE_ENABLED tenant
+    # without an LLM key still gets dedupe + reweight + prune.
+    refine_infer_enabled: bool = False
+    refine_summarize_enabled: bool = False
+    refine_infer_max_candidates: int = 50  # cap LLM calls per cycle
+
+    # --- Slice 5: code-graph extraction ---
+    # When enabled, every ingest of a code source also runs the
+    # tree-sitter extractor and writes function/class/import/call
+    # Memos + edges. Requires `pip install 'z3rno-core[codegraph]'`.
+    codegraph_enabled: bool = False
+    codegraph_languages: str = "python,typescript"
+
+    @property
+    def codegraph_languages_list(self) -> list[str]:
+        return [s.strip().lower() for s in self.codegraph_languages.split(",") if s.strip()]
+
     # API
     cors_origins: str = "http://localhost:3000,http://localhost:8000"
     api_key_header: str = "X-API-Key"

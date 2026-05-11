@@ -84,6 +84,17 @@ def create_app() -> FastAPI:
 
             app.include_router(search_router)
 
+    # Phase D — gated. /v1/feedback is registered only when
+    # REFINE_ENABLED=true. Subsequent slices add /v1/refine on the same
+    # flag; the feedback endpoint ships first so the table starts
+    # collecting signals before the refine pipeline lands.
+    if settings.refine_enabled:
+        from z3rno_server.api.feedback import router as feedback_router  # noqa: PLC0415
+        from z3rno_server.api.refine import router as refine_router  # noqa: PLC0415
+
+        app.include_router(feedback_router)
+        app.include_router(refine_router)
+
     # Prometheus metrics — auto-instruments all endpoints with request count,
     # latency histograms, and error rates. Exposed at GET /metrics.
     Instrumentator().instrument(app).expose(app, endpoint="/metrics")
