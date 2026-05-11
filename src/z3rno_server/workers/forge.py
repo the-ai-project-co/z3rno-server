@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from z3rno_core.distill import StubLLMGateway, get_llm_gateway
 from z3rno_core.engine.embedding import EmbeddingProvider, LiteLLMEmbeddingProvider
 from z3rno_core.forge import ForgeOptions, ForgePipeline
+from z3rno_core.usage import Budgets
 from z3rno_server.config import Settings, get_settings
 from z3rno_server.workers.celery_app import celery_app
 
@@ -35,6 +36,25 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _make_budgets(settings: Settings) -> Budgets | None:
+    """v0.19.2 — build a ``Budgets`` from server-global env caps.
+
+    Returns ``None`` when every cap is zero so the pipeline's
+    pre-flight fast-path stays active. The per-tenant override
+    (``tenants.usage_budget``) is merged on top inside the pipeline
+    via ``resolve_budgets``.
+    """
+    b = Budgets(
+        daily_tokens=settings.usage_budget_daily_tokens,
+        daily_llm_calls=settings.usage_budget_daily_llm_calls,
+        daily_embeddings=settings.usage_budget_daily_embeddings,
+        monthly_tokens=settings.usage_budget_monthly_tokens,
+        monthly_llm_calls=settings.usage_budget_monthly_llm_calls,
+        monthly_embeddings=settings.usage_budget_monthly_embeddings,
+    )
+    return None if b.is_empty() else b
 
 
 def _make_engine(settings: Settings) -> AsyncEngine:
@@ -182,6 +202,7 @@ def forge_distill(
                     max_concurrency=settings.distill_max_concurrency,
                     summary_style=settings.distill_summary_style,
                     provenance_required=settings.distill_provenance_required,
+                    budgets=_make_budgets(settings),
                 ),
             )
             summary = await pipeline.run(

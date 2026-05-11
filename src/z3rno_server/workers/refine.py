@@ -22,10 +22,25 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from z3rno_core.distill import StubLLMGateway, get_llm_gateway
 from z3rno_core.refine import RefineOptions, RefinePipeline
+from z3rno_core.usage import Budgets
 from z3rno_server.config import Settings, get_settings
 from z3rno_server.workers.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
+
+
+def _make_refine_budgets(settings: Settings) -> Budgets | None:
+    """v0.19.2 — server-default Budgets for refine. Returns None when
+    every cap is zero so the pipeline's pre-flight stays fast-path."""
+    b = Budgets(
+        daily_tokens=settings.usage_budget_daily_tokens,
+        daily_llm_calls=settings.usage_budget_daily_llm_calls,
+        daily_embeddings=settings.usage_budget_daily_embeddings,
+        monthly_tokens=settings.usage_budget_monthly_tokens,
+        monthly_llm_calls=settings.usage_budget_monthly_llm_calls,
+        monthly_embeddings=settings.usage_budget_monthly_embeddings,
+    )
+    return None if b.is_empty() else b
 
 
 def _make_engine(settings: Settings) -> AsyncEngine:
@@ -94,6 +109,7 @@ def refine_run(
                         infer_enabled=settings.refine_infer_enabled,
                         summarize_enabled=settings.refine_summarize_enabled,
                         infer_max_candidates=settings.refine_infer_max_candidates,
+                        budgets=_make_refine_budgets(settings),
                     ),
                     gateway=_make_gateway(settings),
                 )
