@@ -8,7 +8,8 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Request
 from sqlalchemy import text as sa_text
 
-from z3rno_core.distill.llm_gateway import LLMGatewayError
+from z3rno_core.distill import get_llm_gateway
+from z3rno_core.distill.llm_gateway import LLMGateway, LLMGatewayError
 from z3rno_core.engine import (
     MemoryNotFoundError,
     NoOpEmbeddingProvider,
@@ -24,6 +25,7 @@ from z3rno_core.engine.forget import ForgetError
 from z3rno_core.engine.store import RelationshipInput as EngineRelInput
 from z3rno_core.models.enums import MemoryType
 from z3rno_core.retrieval import UnknownStrategyError, registered_strategies
+from z3rno_server.config import get_settings
 from z3rno_server.dependencies import DbSession
 from z3rno_server.middleware.rbac import require_role
 from z3rno_server.schemas.memories import (
@@ -53,6 +55,33 @@ def _get_org_id(request: Request) -> UUID:
     if not org_id:
         raise HTTPException(status_code=401, detail="No org context")
     return org_id  # type: ignore[no-any-return]
+
+
+def _make_recall_llm_gateway() -> LLMGateway | None:
+    """Provision an LLM gateway for recall — None when no key is configured.
+
+    Phase C.3: AUTO + GRAPH + TRIPLET + TRACE benefit from an LLM. We
+    use the same gateway shape as the Forge worker (LiteLLM via
+    ``get_llm_gateway``) so the model + key choice stays consistent.
+
+    Returns:
+        ``None`` when ``effective_llm_api_key`` is empty. Strategies that
+        require an LLM raise ``LLMGatewayError`` in that case, which the
+        recall handler maps to a 400 with a clear message. Strategies
+        that degrade (AUTO, GRAPH, TRACE) fall back to their no-LLM
+        defaults silently.
+    """
+    settings = get_settings()
+    api_key = settings.effective_llm_api_key
+    if not api_key:
+        return None
+    return get_llm_gateway(
+        provider="litellm",
+        model=settings.llm_model,
+        api_key=api_key,
+        timeout_seconds=settings.llm_timeout_seconds,
+        max_retries=settings.llm_max_retries,
+    )
 
 
 @router.post(
@@ -144,6 +173,8 @@ async def recall_memories(
             query=body.query,
             strategy=body.strategy,
             embedding_provider=NoOpEmbeddingProvider() if body.query else None,
+            llm_gateway=_make_recall_llm_gateway(),
+            rerank=body.rerank,
             memory_type=body.memory_type,
             filters=body.filters,
             top_k=body.top_k,
