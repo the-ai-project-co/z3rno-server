@@ -25,6 +25,10 @@ from z3rno_core.engine.forget import ForgetError
 from z3rno_core.engine.store import RelationshipInput as EngineRelInput
 from z3rno_core.models.enums import MemoryType
 from z3rno_core.retrieval import UnknownStrategyError, registered_strategies
+from z3rno_core.retrieval.strategies.cypher import (
+    CypherDisabledError,
+    CypherValidationError,
+)
 from z3rno_server.config import get_settings
 from z3rno_server.dependencies import DbSession
 from z3rno_server.middleware.rbac import require_role
@@ -175,6 +179,11 @@ async def recall_memories(
             embedding_provider=NoOpEmbeddingProvider() if body.query else None,
             llm_gateway=_make_recall_llm_gateway(),
             rerank=body.rerank,
+            # Phase C.4: CYPHER strategy gate. The strategy enforces this
+            # internally — when False, calling CYPHER raises
+            # CypherDisabledError which we map to 403 below.
+            allow_cypher_query=get_settings().allow_cypher_query,
+            raw_cypher=body.raw_cypher,
             memory_type=body.memory_type,
             filters=body.filters,
             top_k=body.top_k,
@@ -206,6 +215,20 @@ async def recall_memories(
                 "which is not configured on this server"
             ),
         ) from exc
+    except CypherDisabledError as exc:
+        # Operator hasn't enabled CYPHER on this deployment. 403 because
+        # the *strategy* exists but is administratively disabled — same
+        # shape as RBAC refusal.
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "CYPHER strategy is disabled on this server "
+                "(set ALLOW_CYPHER_QUERY=true to enable)"
+            ),
+        ) from exc
+    except CypherValidationError as exc:
+        # raw_cypher missing or rejected by the read-only validator.
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     # Phase C: response is a RecallResponse wrapper around StrategyResult.
     # Each StrategyResult carries score_components instead of a flat

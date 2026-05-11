@@ -166,6 +166,12 @@ class Settings(BaseSettings):
     rate_limit_per_minute: int = 60
     rate_limit_burst: int = 10
 
+    # Phase C.4: gate for the raw-Cypher retrieval strategy. With this
+    # disabled (default), strategy="CYPHER" returns 403 from the recall
+    # endpoint — the strategy exists but the operator has chosen not
+    # to expose it. Enable per deployment if you trust the caller path.
+    allow_cypher_query: bool = False
+
     # Celery queue-depth backpressure — when the broker has more than this
     # many pending tasks, /v1/ingest endpoints return 503 + Retry-After so
     # clients back off rather than piling more onto a saturated worker.

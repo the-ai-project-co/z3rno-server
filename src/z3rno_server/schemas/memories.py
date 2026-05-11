@@ -67,8 +67,12 @@ class RecallRequest(BaseModel):
     # and in C.1 delegates to VECTOR; later slices wire it to an LLM
     # classifier that picks among VECTOR / LEXICAL / GRAPH / etc.
     strategy: str = "AUTO"
-    # Phase C.3: opt-in cross-encoder re-ranking. Ignored in C.1.
+    # Phase C.3: opt-in cross-encoder re-ranking.
     rerank: bool = False
+    # Phase C.4: operator-supplied raw Cypher for ``strategy="CYPHER"``.
+    # Honoured only when ALLOW_CYPHER_QUERY=true on the server; the
+    # strategy itself enforces the gate (returns 403 when off).
+    raw_cypher: str | None = None
 
 
 class RecallResultItem(BaseModel):
