@@ -111,6 +111,33 @@ def _build_retrieval_filters(settings: Any) -> list[Any]:
     ]
 
 
+def _load_forget_signing_key(settings: Any) -> tuple[Any, str]:
+    """Phase F slice 5 — lazy-load the ed25519 signing key.
+
+    Returns ``(key, signer_key_id)`` when ``FORGET_PROOF_ENABLED=true``
+    and the key file is loadable; ``(None, "")`` otherwise. Cached on
+    the settings object so repeated forgets don't hit disk.
+    """
+    if not settings.forget_proof_enabled:
+        return (None, "")
+    cached = getattr(settings, "_cached_signing_key", None)
+    if cached is not None:
+        return cached  # type: ignore[no-any-return]
+    from z3rno_core.forget_proof import (  # noqa: PLC0415
+        SigningKeyMissingError,
+        load_signing_key,
+    )
+
+    try:
+        key = load_signing_key(settings.forget_proof_signing_key_path)
+    except SigningKeyMissingError:
+        logger.exception("forget_proof: signing key load failed")
+        return (None, "")
+    pair: tuple[Any, str] = (key, settings.forget_proof_signer_key_id)
+    settings._cached_signing_key = pair
+    return pair
+
+
 @router.post(
     "",
     response_model=MemoryResponse,
@@ -309,6 +336,9 @@ async def forget_memories(
     """Soft or hard delete memories with optional cascade."""
     org_id = _get_org_id(request)
 
+    settings = get_settings()
+    signing_key, signer_key_id = _load_forget_signing_key(settings)
+
     try:
         conn = await db.connection()
         result = await forget(
@@ -320,6 +350,8 @@ async def forget_memories(
             hard_delete=body.hard_delete,
             cascade=body.cascade,
             reason=body.reason,
+            signing_key=signing_key,
+            signer_key_id=signer_key_id,
             request_id=getattr(request.state, "request_id", None),
         )
     except ForgetError as e:
@@ -330,6 +362,7 @@ async def forget_memories(
         hard_deleted=result.hard_deleted,
         cascade_count=result.cascade_count,
         memory_ids=result.memory_ids,
+        cert_id=result.cert_id,
     )
 
 

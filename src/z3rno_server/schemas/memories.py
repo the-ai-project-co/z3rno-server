@@ -137,6 +137,10 @@ class ForgetResponse(BaseModel):
     hard_deleted: bool
     cascade_count: int
     memory_ids: list[UUID]
+    # Phase F slice 5: populated when FORGET_PROOF_ENABLED=true and the
+    # signing key is loadable. Clients can retrieve the full certificate
+    # at ``GET /v1/forget/{cert_id}``.
+    cert_id: UUID | None = None
 
 
 # --- Memory History (SCD Type 2) ---

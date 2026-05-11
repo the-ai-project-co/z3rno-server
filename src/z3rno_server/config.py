@@ -84,6 +84,17 @@ class Settings(BaseSettings):
     retrieval_redaction_enabled: bool = False
     retrieval_redaction_rules_path: str = ""
 
+    # Phase F slice 5 — forget-with-proof. When enabled, every
+    # successful forget() emits a Merkle-rooted, ed25519-signed
+    # certificate row in ``forget_certificates`` and the
+    # ``GET /v1/forget/{cert_id}`` endpoint is registered. The
+    # signing key must be a PEM-encoded unencrypted Ed25519 private
+    # key on disk; the matching ``signer_key_id`` is the rotation-
+    # friendly label stamped on each cert.
+    forget_proof_enabled: bool = False
+    forget_proof_signing_key_path: str = ""
+    forget_proof_signer_key_id: str = "default"
+
     @property
     def effective_llm_api_key(self) -> str:
         """Return LLM_API_KEY if set, otherwise fall back to OPENAI_API_KEY.

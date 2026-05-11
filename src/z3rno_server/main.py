@@ -100,6 +100,14 @@ def create_app() -> FastAPI:
         app.include_router(feedback_router)
         app.include_router(refine_router)
 
+    # Phase F slice 5 — gated. /v1/forget/{cert_id} is registered only
+    # when FORGET_PROOF_ENABLED=true; with the flag off, forget()
+    # behaves exactly as it did pre-F.5 (no cert emission, no route).
+    if settings.forget_proof_enabled:
+        from z3rno_server.api.forget_proof import router as forget_proof_router  # noqa: PLC0415
+
+        app.include_router(forget_proof_router)
+
     # Prometheus metrics — auto-instruments all endpoints with request count,
     # latency histograms, and error rates. Exposed at GET /metrics.
     Instrumentator().instrument(app).expose(app, endpoint="/metrics")
