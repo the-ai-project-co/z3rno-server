@@ -95,6 +95,16 @@ class Settings(BaseSettings):
     forget_proof_signing_key_path: str = ""
     forget_proof_signer_key_id: str = "default"
 
+    # Phase F slice 6 — distributed workers. Pluggable backend
+    # routing the Forge / Ingest / Refine Celery tasks. Celery
+    # default keeps the existing Valkey-broker path; ``modal`` and
+    # ``k8s_jobs`` light up only when the operator has installed
+    # the matching SDK and configured the per-backend keys below.
+    distributed_backend: str = "celery"
+    modal_app_name: str = "z3rno"
+    k8s_jobs_namespace: str = "z3rno"
+    k8s_jobs_image: str = ""
+
     @property
     def effective_llm_api_key(self) -> str:
         """Return LLM_API_KEY if set, otherwise fall back to OPENAI_API_KEY.

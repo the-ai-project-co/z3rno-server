@@ -1,0 +1,44 @@
+# Phase F slice 6 — K8s Job template for the ``k8s_jobs`` backend.
+#
+# Override fields by mounting this file as a ConfigMap and pointing
+# the K8sJobsBackend at it (TODO: file-loader hook in v0.18). For
+# v0.17 the same shape is hard-coded in
+# ``z3rno_server/workers/backends/k8s_backend.py``.
+#
+# The container's entrypoint reads ``Z3RNO_TASK_NAME`` +
+# ``Z3RNO_TASK_PAYLOAD`` (JSON) and dispatches to the matching
+# task function in z3rno_server.workers.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # Filled in by the backend at submit time:
+  #   metadata.name = "z3rno-<task-slug>-<uid8>"
+  name: REPLACE_ME
+  labels:
+    app.kubernetes.io/name: z3rno
+    app.kubernetes.io/component: task
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: z3rno
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: task
+          image: ghcr.io/the-ai-project-co/z3rno-server:latest
+          command: ["z3rno-task-runner"]
+          # Backend injects:
+          #   Z3RNO_TASK_NAME      — the dotted task name (z3rno.forge_distill etc.)
+          #   Z3RNO_TASK_PAYLOAD   — JSON-encoded kwargs
+          #   Z3RNO_TASK_DISPATCH_TS — unix seconds for tracing
+          env: []
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"

@@ -24,6 +24,9 @@ make dev-psql                    # Connect to postgres shell
 - `src/z3rno_server/middleware/` — auth.py, rate_limit.py, logging.py, request_id.py, org_context.py
 - `src/z3rno_server/schemas/` — Pydantic request/response models (the API contract for SDKs)
 - `src/z3rno_server/workers/` — Celery tasks: lifecycle.py, embeddings.py, healthcheck.py, celery_app.py
+- `src/z3rno_server/workers/backends/` — **Phase F slice 6:** pluggable `JobBackend` (CeleryBackend default + lazy ModalBackend + lazy K8sJobsBackend) selected by `DISTRIBUTED_BACKEND`. Callers use `enqueue_job(task_name, payload, options=)` instead of direct `celery_app.send_task`.
+- `src/z3rno_server/workers/modal/z3rno_modal_app.py` — Modal app scaffold; deploy via `modal deploy`.
+- `deploy/k8s/job-template.yaml` — reference K8s Job manifest for the `k8s_jobs` backend.
 - `src/z3rno_server/config.py` — pydantic-settings (DATABASE_URL, VALKEY_URL, etc.)
 - `src/z3rno_server/dependencies.py` — FastAPI DI: database session with RLS context
 
