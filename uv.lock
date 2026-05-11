@@ -4594,7 +4594,7 @@ wheels = [
 
 [[package]]
 name = "z3rno-core"
-version = "0.11.0"
+version = "0.19.0"
 source = { editable = "../z3rno-core" }
 dependencies = [
     { name = "aioboto3" },
@@ -4652,7 +4652,9 @@ requires-dist = [
     { name = "tenacity", specifier = ">=9.0.0" },
     { name = "tiktoken", specifier = ">=0.7.0" },
     { name = "tree-sitter", marker = "extra == 'codegraph'", specifier = ">=0.23.0" },
+    { name = "tree-sitter-go", marker = "extra == 'codegraph'", specifier = ">=0.23.0" },
     { name = "tree-sitter-python", marker = "extra == 'codegraph'", specifier = ">=0.23.0" },
+    { name = "tree-sitter-rust", marker = "extra == 'codegraph'", specifier = ">=0.23.0" },
     { name = "tree-sitter-typescript", marker = "extra == 'codegraph'", specifier = ">=0.23.0" },
 ]
 provides-extras = ["worker", "playwright", "multimodal-local", "test-aws", "ontology", "codegraph", "observability"]
