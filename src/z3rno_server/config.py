@@ -116,6 +116,20 @@ class Settings(BaseSettings):
     k8s_jobs_namespace: str = "z3rno"
     k8s_jobs_image: str = ""
 
+    # Phase G slice 6 — usage budgets. Zero means "no cap" (the
+    # default). When non-zero, the Forge + refine pipelines call
+    # ``check_budget`` before any LLM/embedding work; if the matching
+    # counter is past its cap, the job is rejected upfront. ≤5%
+    # overrun on the in-flight job is acceptable — the hard-stop is
+    # at the job boundary, not mid-LLM-call. Global per-deploy
+    # today; per-org overrides land in v0.19 via a tenants column.
+    usage_budget_daily_tokens: int = 0
+    usage_budget_daily_llm_calls: int = 0
+    usage_budget_daily_embeddings: int = 0
+    usage_budget_monthly_tokens: int = 0
+    usage_budget_monthly_llm_calls: int = 0
+    usage_budget_monthly_embeddings: int = 0
+
     @property
     def effective_llm_api_key(self) -> str:
         """Return LLM_API_KEY if set, otherwise fall back to OPENAI_API_KEY.

@@ -14,6 +14,7 @@ from z3rno_server.api.health import router as health_router
 from z3rno_server.api.limits import router as limits_router
 from z3rno_server.api.memories import router as memories_router
 from z3rno_server.api.memories_stream import router as memories_stream_router
+from z3rno_server.api.usage import router as usage_router
 from z3rno_server.api.sessions import router as sessions_router
 from z3rno_server.api.worker import router as worker_router
 from z3rno_server.config import get_settings
@@ -60,6 +61,7 @@ def create_app() -> FastAPI:
     app.include_router(memories_stream_router)
     app.include_router(conversations_router)
     app.include_router(audit_router)
+    app.include_router(usage_router)
     app.include_router(sessions_router)
     app.include_router(api_keys_router)
     app.include_router(worker_router)
