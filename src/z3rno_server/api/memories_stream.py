@@ -36,7 +36,7 @@ from z3rno_core.engine import NoOpEmbeddingProvider, recall
 from z3rno_core.engine.recall import RecallResponse
 from z3rno_core.retrieval import UnknownStrategyError, registered_strategies
 from z3rno_server.config import get_settings
-from z3rno_server.dependencies import DbSession
+from z3rno_server.dependencies import DbSession, ReadDbSession
 from z3rno_server.middleware.rbac import require_role
 from z3rno_server.schemas.memories import RecallRequest
 from z3rno_server.schemas.shared import ErrorResponse
@@ -79,6 +79,7 @@ async def recall_stream(
     body: RecallRequest,
     request: Request,
     db: DbSession,
+    read_db: ReadDbSession,
     _rbac: None = require_role("admin", "write", "read"),
 ) -> EventSourceResponse:
     """Stream recall events as SSE. TRACE emits one ``step`` per
@@ -109,9 +110,11 @@ async def recall_stream(
 
     async def _run_recall() -> None:
         try:
-            conn = await db.connection()
+            read_conn = await read_db.connection()
+            write_conn = await db.connection()
             resp: RecallResponse = await recall(
-                conn,
+                read_conn,
+                write_conn=write_conn,
                 org_id=org_id,
                 agent_id=body.agent_id,
                 query=body.query,

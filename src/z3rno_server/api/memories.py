@@ -213,15 +213,25 @@ async def recall_memories(
     body: RecallRequest,
     request: Request,
     db: DbSession,
+    read_db: ReadDbSession,
     _rbac: None = require_role("admin", "write", "read"),
 ) -> RecallResponse:
-    """Recall memories using vector similarity, filters, and temporal queries."""
+    """Recall memories using vector similarity, filters, and temporal queries.
+
+    v0.19.1 — two-phase recall: SELECT-heavy strategy work runs on
+    the read replica (via ``read_db``) when DATABASE_READ_URL is
+    configured; recall-count bump + audit row land on the primary
+    (``db``). When no replica is set, both deps resolve to the
+    primary and behaviour is byte-identical to v0.18.x.
+    """
     org_id = _get_org_id(request)
 
-    conn = await db.connection()
+    read_conn = await read_db.connection()
+    write_conn = await db.connection()
     try:
         response = await recall(
-            conn,
+            read_conn,
+            write_conn=write_conn,
             org_id=org_id,
             agent_id=body.agent_id,
             query=body.query,
