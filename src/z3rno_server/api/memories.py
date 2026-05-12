@@ -237,7 +237,10 @@ async def recall_memories(
             # short-lived conn so it can survive past the request's
             # ``await db.close()`` cleanup.
             write_engine=db.bind,
-            bump_counters_async=True,
+            # v0.22.0 — slice 21.5: prefer batched bumps when the operator
+            # enables it. Falls back to v0.20.5 fire-and-forget otherwise.
+            bump_counters_batched=get_settings().recall_count_batch_enabled,
+            bump_counters_async=not get_settings().recall_count_batch_enabled,
             org_id=org_id,
             agent_id=body.agent_id,
             query=body.query,

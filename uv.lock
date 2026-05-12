@@ -4594,7 +4594,7 @@ wheels = [
 
 [[package]]
 name = "z3rno-core"
-version = "0.21.4"
+version = "0.22.0"
 source = { editable = "../z3rno-core" }
 dependencies = [
     { name = "aioboto3" },
@@ -4680,7 +4680,7 @@ dev = [
 
 [[package]]
 name = "z3rno-server"
-version = "0.21.4"
+version = "0.22.0"
 source = { editable = "." }
 dependencies = [
     { name = "bcrypt" },

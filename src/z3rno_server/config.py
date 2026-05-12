@@ -87,6 +87,15 @@ class Settings(BaseSettings):
     # recall body always wins over this default.
     memory_tier_auto_route: bool = False
 
+    # v0.22.0 — slice 21.5: batched recall_count write-back. When True,
+    # the engine routes counter bumps through the process-local
+    # RecallCountBatcher (one UPDATE per org per window) instead of
+    # per-recall fire-and-forget UPDATEs. Off by default for v0.22.0
+    # — flip on once the deployment-side benchmark numbers ratify the
+    # win. Window is ``recall_count_batch_window_ms`` (default 50).
+    recall_count_batch_enabled: bool = False
+    recall_count_batch_window_ms: int = 50
+
     # Phase F slice 2 — compliance-graded retrieval. When enabled, the
     # server applies a role-aware RedactionFilter to recall results
     # before they leave the box. Rules supplied via YAML file; an

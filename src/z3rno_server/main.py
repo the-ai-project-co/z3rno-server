@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
+
+from z3rno_core.engine.recall_batch import shutdown_batcher
 
 from z3rno_server.api.api_keys import router as api_keys_router
 from z3rno_server.api.audit import router as audit_router
@@ -26,6 +31,16 @@ from z3rno_server.middleware.rate_limit import RateLimitMiddleware
 from z3rno_server.middleware.request_id import RequestIdMiddleware
 
 
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Startup is a no-op (settings load eagerly). On shutdown, drain
+    the recall_count batcher so in-flight bumps land before SIGTERM."""
+    try:
+        yield
+    finally:
+        await shutdown_batcher()
+
+
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     settings = get_settings()
@@ -37,6 +52,7 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
+        lifespan=_lifespan,
     )
 
     # Middleware (order matters — outermost first, innermost last)
