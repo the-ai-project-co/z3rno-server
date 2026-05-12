@@ -43,3 +43,24 @@ def require_role(*allowed_roles: str):  # type: ignore[no-untyped-def]
             )
 
     return Depends(_check)
+
+
+def require_superadmin():  # type: ignore[no-untyped-def]
+    """Strict variant — rejects ``role=None`` so a regular API key
+    cannot cross-tenant admin even if it reached this route.
+
+    Routes guarded by this dependency must only be reachable when
+    ``superadmin_enabled=true`` AND the caller presented the env-keyed
+    ``superadmin_api_key``; the auth middleware is what stamps
+    ``role="superadmin"``.
+    """
+
+    def _check(request: Request) -> None:
+        role = getattr(request.state, "role", None)
+        if role != "superadmin":
+            raise HTTPException(
+                403,
+                "superadmin role required",
+            )
+
+    return Depends(_check)

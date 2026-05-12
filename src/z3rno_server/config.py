@@ -139,6 +139,16 @@ class Settings(BaseSettings):
     usage_budget_monthly_llm_calls: int = 0
     usage_budget_monthly_embeddings: int = 0
 
+    # v0.22.1 — slice 21.3: cross-tenant budget admin.
+    # ``/v1/tenants/{org_id}/budgets`` (GET + PUT) registers only when
+    # ``superadmin_enabled=true``. Authentication is the env-keyed
+    # ``superadmin_api_key`` — any caller presenting that key gets
+    # ``role="superadmin"`` attached and bypasses the per-tenant
+    # ``org_id`` binding. Off by default; an empty key disables the
+    # surface even when the flag is true.
+    superadmin_enabled: bool = False
+    superadmin_api_key: str = ""
+
     # v0.19.4 — multi-tenant refine scheduler. Beat picks up to
     # ``refine_max_per_tick`` opted-in tenants
     # (``tenants.refine_enabled IS TRUE``) every

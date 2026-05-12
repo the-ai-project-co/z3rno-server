@@ -155,6 +155,24 @@ class AuthMiddleware(BaseHTTPMiddleware):
             request.state.role = result.role
             return await call_next(request)
 
+        # v0.22.1 — slice 21.3: superadmin env-keyed bypass. Matches
+        # against ``settings.superadmin_api_key`` only when the surface
+        # is enabled AND a non-empty key is configured. The principal
+        # has ``role="superadmin"`` and no bound ``org_id`` — handlers
+        # that need tenant scope must read ``{org_id}`` from the path
+        # and ``SET LOCAL app.current_org_id`` themselves.
+        settings = get_settings()
+        if (
+            settings.superadmin_enabled
+            and settings.superadmin_api_key
+            and token == settings.superadmin_api_key
+        ):
+            request.state.api_key = token
+            request.state.org_id = None
+            request.state.api_key_id = None
+            request.state.role = "superadmin"
+            return await call_next(request)
+
         # Otherwise, verify as API key (dev bypass → cache → database)
         result = await verify_api_key(token)
         if not result:

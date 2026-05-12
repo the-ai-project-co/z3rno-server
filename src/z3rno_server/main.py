@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from z3rno_core.engine.recall_batch import shutdown_batcher
-
 from z3rno_server.api.api_keys import router as api_keys_router
 from z3rno_server.api.audit import router as audit_router
 from z3rno_server.api.conversations import router as conversations_router
@@ -19,9 +18,9 @@ from z3rno_server.api.health import router as health_router
 from z3rno_server.api.limits import router as limits_router
 from z3rno_server.api.memories import router as memories_router
 from z3rno_server.api.memories_stream import router as memories_stream_router
+from z3rno_server.api.sessions import router as sessions_router
 from z3rno_server.api.tenants import router as tenants_router
 from z3rno_server.api.usage import router as usage_router
-from z3rno_server.api.sessions import router as sessions_router
 from z3rno_server.api.worker import router as worker_router
 from z3rno_server.config import get_settings
 from z3rno_server.middleware.auth import AuthMiddleware
@@ -131,6 +130,15 @@ def create_app() -> FastAPI:
         from z3rno_server.api.forget_proof import router as forget_proof_router  # noqa: PLC0415
 
         app.include_router(forget_proof_router)
+
+    # v0.22.1 — slice 21.3: cross-tenant budget admin. /v1/tenants/{org_id}/budgets
+    # registers only when SUPERADMIN_ENABLED=true AND a non-empty
+    # SUPERADMIN_API_KEY is configured — otherwise the surface stays
+    # invisible and the auth middleware never stamps role=superadmin.
+    if settings.superadmin_enabled and settings.superadmin_api_key:
+        from z3rno_server.api.tenants_admin import router as tenants_admin_router  # noqa: PLC0415
+
+        app.include_router(tenants_admin_router)
 
     # Prometheus metrics — auto-instruments all endpoints with request count,
     # latency histograms, and error rates. Exposed at GET /metrics.
