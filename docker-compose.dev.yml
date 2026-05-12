@@ -130,7 +130,70 @@ services:
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-4}
-    command: ["sh", "-c", "echo 'worker placeholder — replace with: celery -A z3rno_server.workers.celery_app worker --loglevel=info --concurrency=${CELERY_WORKER_CONCURRENCY:-4}' && tail -f /dev/null"]
+      # Forge surfaces — operators opt these on at the worker tier the
+      # same way they do at the server tier. Off by default so the
+      # vanilla dev stack stays byte-identical to pre-Phase-A.
+      DISTILL_ENABLED: ${DISTILL_ENABLED:-false}
+      INGEST_ENABLED: ${INGEST_ENABLED:-false}
+      REFINE_ENABLED: ${REFINE_ENABLED:-false}
+    # v0.21.3 — replace the pre-fix ``tail -f /dev/null`` placeholder
+    # with a real Celery worker. The Dockerfile entrypoint always
+    # exec's uvicorn, so we override entrypoint to bypass it. Closes
+    # Finding #11 (part 1) from V0-21-2-AS-A-USER-2026-05-12.
+    entrypoint: []
+    command:
+      - "celery"
+      - "-A"
+      - "z3rno_server.workers.celery_app"
+      - "worker"
+      - "--loglevel=info"
+      - "--concurrency=${CELERY_WORKER_CONCURRENCY:-4}"
+    networks:
+      - z3rno
+
+  # --------------------------------------------------------------------------
+  # Celery beat scheduler. Singleton — do NOT scale beyond 1 replica.
+  # Required for periodic z3rno.audit_drain (1 s cadence by default) so
+  # audit_log_pending stays bounded and GET /v1/audit returns rows. Also
+  # drives z3rno.sweep_expired_memories, decay_importance, etc.
+  #
+  # v0.21.3 — added in response to Finding #11 from
+  # V0-21-2-AS-A-USER-2026-05-12: pre-fix the dev compose shipped server
+  # + worker only, so the drain never fired and operators trying the
+  # Quickstart saw an empty audit log.
+  # --------------------------------------------------------------------------
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: z3rno-beat
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-z3rno}:${POSTGRES_PASSWORD:-z3rno_dev_password}@postgres:5432/${POSTGRES_DB:-z3rno}
+      VALKEY_URL: redis://valkey:6379/0
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DISTILL_ENABLED: ${DISTILL_ENABLED:-false}
+      INGEST_ENABLED: ${INGEST_ENABLED:-false}
+      REFINE_ENABLED: ${REFINE_ENABLED:-false}
+    entrypoint: []
+    command:
+      - "celery"
+      - "-A"
+      - "z3rno_server.workers.celery_app"
+      - "beat"
+      - "--loglevel=info"
+      # v0.21.3 — pin the schedule DB to /tmp. The container runs as
+      # the non-root z3rno user; default celerybeat tries to create
+      # ``celerybeat-schedule`` in CWD (/app), which fails with
+      # EACCES and the container crashloops. Closes Finding #12 from
+      # V0-21-2-AS-A-USER-2026-05-12.
+      - "-s"
+      - "/tmp/celerybeat-schedule"
     networks:
       - z3rno
 
@@ -152,6 +215,7 @@ volumes:
 #   - valkey        (DNS → valkey container)
 #   - server        (DNS → server container)
 #   - worker        (DNS → worker container)
+#   - beat          (DNS → beat container; singleton)
 # -----------------------------------------------------------------------------
 networks:
   z3rno:
