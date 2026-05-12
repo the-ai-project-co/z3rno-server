@@ -23,24 +23,33 @@ done
 
 echo "z3rno-server: PostgreSQL is ready"
 
-# Run migrations (uses psycopg sync driver)
-SYNC_URL=$(echo "$DATABASE_URL" | sed 's/+asyncpg/+psycopg/g')
-if python -c "
-import subprocess, os, sys
+# Run migrations against the alembic tree shipped inside z3rno-core
+# (v0.20.2+). Fails loud — a migration error is a real ship problem,
+# not a "warning". Pre-v0.20.2 fallback shells out to alembic if the
+# helper isn't available (older z3rno-core wheels).
+python -c "
+import os, sys
+
 url = os.environ['DATABASE_URL'].replace('+asyncpg', '+psycopg')
-result = subprocess.run(
-    [sys.executable, '-m', 'alembic', 'upgrade', 'head'],
-    env={**os.environ, 'DATABASE_URL': url},
-    capture_output=True, text=True
-)
-if result.returncode == 0:
-    print('z3rno-server: migrations applied')
-else:
-    print(f'z3rno-server: migration warning: {result.stderr[:200]}')
-    sys.exit(0)  # Don't block startup on migration issues
-"; then
-  echo "z3rno-server: database ready"
-fi
+
+try:
+    from z3rno_core.alembic_helpers import upgrade_to_head
+except ImportError:
+    # z3rno-core <0.20.2 — fall back to the legacy subprocess path
+    # (which requires alembic.ini + migrations/ on disk at the CWD).
+    import subprocess
+    print('z3rno-server: z3rno-core <0.20.2 detected, using legacy alembic subprocess')
+    res = subprocess.run(
+        [sys.executable, '-m', 'alembic', 'upgrade', 'head'],
+        env={**os.environ, 'DATABASE_URL': url},
+    )
+    sys.exit(res.returncode)
+
+print('z3rno-server: running migrations via bundled alembic tree...')
+upgrade_to_head(url)
+print('z3rno-server: migrations applied')
+"
+echo "z3rno-server: database ready"
 
 # Seed dev tenant if it doesn't exist (dev mode only)
 if [ -n "$Z3RNO_DEV_ORG_ID" ]; then
