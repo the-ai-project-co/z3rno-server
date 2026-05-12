@@ -1,7 +1,7 @@
 # Phase 3 cluster validation runbook
 
 Single-command harness for the eight cluster-scale validations in
-`z3rno-process-docs/improvements/PHASE-3-DEFERRED-TESTS.md`. The local
+`z3rno-process-docs/improvements/status/PHASE-3-DEFERRED-TESTS.md`. The local
 rig in `../run.sh` caps at ~1,500 concurrent users; this directory
 drives the same scenarios at 10k+ against a real GKE / EKS cluster
 plus a distributed Locust master.
