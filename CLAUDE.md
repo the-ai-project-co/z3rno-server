@@ -107,6 +107,10 @@ Optional capability flags (each independent of the others):
 
 See `../z3rno-process-docs/improvements/references/PHASE-D-IMPLEMENTATION.md` for full operator reference.
 
+## Process docs
+
+Phase + release docs live in `../z3rno-process-docs/improvements/`, subfoldered by lifecycle stage: `plans/` (original planning), `references/` (`PHASE-*-IMPLEMENTATION.md` + glossary), `changelogs/` (per-release), `operator-notes/` (dated runs + upgrades), `status/` (OPEN-WORK + SHIPPED-STATUS + PHASE-3-DEFERRED-TESTS). Start at `improvements/README.md` for the index or `improvements/status/SHIPPED-STATUS.md` for current shipped state.
+
 ## Middleware Chain (order matters)
 
 RequestId -> Logging -> Auth -> RateLimit -> Route Handler
