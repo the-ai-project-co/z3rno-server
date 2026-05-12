@@ -180,6 +180,11 @@ services:
       DISTILL_ENABLED: ${DISTILL_ENABLED:-false}
       INGEST_ENABLED: ${INGEST_ENABLED:-false}
       REFINE_ENABLED: ${REFINE_ENABLED:-false}
+      # v0.22.2 — listener handles the hot path; this is the safety
+      # fallback only. Long interval keeps the beat from contending
+      # with in-flight recall audit writes (the v0.22 bench's tail
+      # outlier source).
+      AUDIT_DRAIN_INTERVAL_SECONDS: ${AUDIT_DRAIN_INTERVAL_SECONDS:-60}
     entrypoint: []
     command:
       - "celery"
@@ -194,6 +199,43 @@ services:
       # V0-21-2-AS-A-USER-2026-05-12.
       - "-s"
       - "/tmp/celerybeat-schedule"
+    networks:
+      - z3rno
+
+  # --------------------------------------------------------------------------
+  # v0.22.2 — audit listener. Singleton — do NOT scale beyond 1 replica.
+  # Opens a Postgres LISTEN on z3rno_audit_pending (Migration 032 trigger)
+  # and fires z3rno.audit_drain on every NOTIFY — drain wakes in ~50 ms
+  # instead of waiting for the next beat tick. The beat-driven drain stays
+  # in place as a 60 s fallback (see AUDIT_DRAIN_INTERVAL_SECONDS below)
+  # so a stuck listener can't grow the queue unbounded.
+  #
+  # Why this matters: with the listener off + 1 s beat cadence (the
+  # pre-v0.22.2 default), high-concurrency recall benches show periodic
+  # ~60 s tail outliers — the beat tick acquires per-org advisory locks
+  # while a recall's audit-write transaction is mid-flight, blocking the
+  # recall for one full drain cycle. The v0.22.0 batched-recall bench
+  # confirmed this is independent of recall counter pressure. Tracked in
+  # OPEN-WORK.md → "Audit-drain tail outlier remediation".
+  # --------------------------------------------------------------------------
+  audit-listener:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: z3rno-audit-listener
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-z3rno}:${POSTGRES_PASSWORD:-z3rno_dev_password}@postgres:5432/${POSTGRES_DB:-z3rno}
+      VALKEY_URL: redis://valkey:6379/0
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      Z3RNO_AUDIT_LISTEN_ENABLED: "true"
+    entrypoint: []
+    command: ["z3rno-audit-listener"]
     networks:
       - z3rno
 
