@@ -260,7 +260,11 @@ async def recall_memories(
             role=body.role,
             retrieval_filters=_build_retrieval_filters(get_settings()),
             memory_type=body.memory_type,
-            filters=body.filters,
+            # v0.21.2 — renamed from ``filters``.
+            metadata_filter=body.metadata_filter,
+            # v0.21.1 — scope by end-user id (real WHERE predicate now,
+            # not just audit context).
+            user_id=body.user_id,
             conversation_id=body.conversation_id,
             top_k=body.top_k,
             similarity_threshold=body.similarity_threshold,

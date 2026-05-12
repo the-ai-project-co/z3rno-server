@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class RelationshipInput(BaseModel):
@@ -54,10 +54,27 @@ class MemoryResponse(BaseModel):
 class RecallRequest(BaseModel):
     """POST /v1/memories/recall - recall memories."""
 
+    # v0.21.2 — reject unknown top-level fields with 422 instead of
+    # silently ignoring them. Catches typos like ``filterz`` /
+    # ``metadtaa_filter`` that would otherwise return zero results
+    # with no signal.
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
     agent_id: UUID
     query: str | None = None
     memory_type: str | None = None
-    filters: dict[str, Any] | None = None
+    # v0.21.2 — renamed from ``filters``. The old name implied a
+    # general where-clause builder; the actual semantic is
+    # ``metadata @> :metadata_filter`` JSONB containment. Pre-v0.21
+    # callers using ``filters`` still parse via the alias and emit a
+    # deprecation warning one layer down (in z3rno-core
+    # engine.recall).
+    metadata_filter: dict[str, Any] | None = Field(default=None, alias="filters")
+    # v0.21.1 — scope by end-user id. Plumbed through to
+    # ``build_where_clause`` so multi-user agents (one agent serving
+    # many end-users under one tenant) can recall per-user without
+    # mirroring user_id into metadata at store time.
+    user_id: UUID | None = None
     top_k: int = Field(default=10, ge=1, le=100)
     similarity_threshold: float = Field(default=0.0, ge=0.0, le=1.0)
     time_range: tuple[datetime, datetime] | None = None

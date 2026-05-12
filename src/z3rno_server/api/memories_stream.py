@@ -122,7 +122,9 @@ async def recall_stream(
                 rerank=body.rerank,
                 role=body.role,
                 memory_type=body.memory_type,
-                filters=body.filters,
+                # v0.21.2 — renamed; v0.21.1 — user_id is a real predicate.
+                metadata_filter=body.metadata_filter,
+                user_id=body.user_id,
                 conversation_id=body.conversation_id,
                 top_k=body.top_k,
                 similarity_threshold=body.similarity_threshold,
