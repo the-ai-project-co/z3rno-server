@@ -53,7 +53,7 @@ make dev-psql                    # Connect to postgres shell
 
 The Celery task `z3rno.forge_distill` runs the pipeline asynchronously. With `DISTILL_ENABLED=false` (default), the routes are not registered and the worker self-rejects messages — OpenAPI is byte-identical to pre-Phase-A.
 
-See `../z3rno-process-docs/improvements/references/PHASE-A-IMPLEMENTATION.md` for full operator reference.
+See `../z3rno-local/improvements/references/PHASE-A-IMPLEMENTATION.md` for full operator reference.
 
 ### Phase B.1 — Ingestion (registered only when `INGEST_ENABLED=true`)
 
@@ -69,7 +69,7 @@ The Celery task `z3rno.ingest_run` bridges to `IngestPipeline.run()`. When `INGE
 
 `BodyLimitMiddleware` whitelists `multipart/form-data` for `/v1/ingest/file` only; that endpoint enforces its own size cap via `INGEST_MAX_FILE_BYTES`.
 
-See `../z3rno-process-docs/improvements/references/PHASE-B1-IMPLEMENTATION.md` for full operator reference.
+See `../z3rno-local/improvements/references/PHASE-B1-IMPLEMENTATION.md` for full operator reference.
 
 ### Phase B.2 — Multimodal + Search + S3 (opt-in)
 
@@ -78,7 +78,7 @@ See `../z3rno-process-docs/improvements/references/PHASE-B1-IMPLEMENTATION.md` f
 - `STORAGE_BACKEND=s3` swaps `LocalStorageBackend` for `S3StorageBackend`; same `_make_storage()` factory in the worker.
 - `URL_PLAYWRIGHT_ENABLED=true` + `[playwright]` extra activates the JS-rendered URL fallback inside the existing URL loader.
 
-See `../z3rno-process-docs/improvements/references/PHASE-B2-IMPLEMENTATION.md` for full operator reference.
+See `../z3rno-local/improvements/references/PHASE-B2-IMPLEMENTATION.md` for full operator reference.
 
 ### Phase G slice 2 — Conversation memory (always registered)
 
@@ -105,11 +105,11 @@ Optional capability flags (each independent of the others):
 - `REFINE_INFER_ENABLED=true` and/or `REFINE_SUMMARIZE_ENABLED=true` → LLM-driven refine stages. Reuses the Phase A `LLM_*` keys.
 - `CODEGRAPH_ENABLED=true` → ingest of Python/TypeScript sources also writes function-level call graph. Requires `[codegraph]` extra in z3rno-core. Surfaces via the new `CODE` retrieval strategy.
 
-See `../z3rno-process-docs/improvements/references/PHASE-D-IMPLEMENTATION.md` for full operator reference.
+See `../z3rno-local/improvements/references/PHASE-D-IMPLEMENTATION.md` for full operator reference.
 
 ## Process docs
 
-Phase + release docs live in `../z3rno-process-docs/improvements/`, subfoldered by lifecycle stage: `plans/` (original planning), `references/` (`PHASE-*-IMPLEMENTATION.md` + glossary), `changelogs/` (per-release), `operator-notes/` (dated runs + upgrades), `status/` (OPEN-WORK + SHIPPED-STATUS + PHASE-3-DEFERRED-TESTS). Start at `improvements/README.md` for the index or `improvements/status/SHIPPED-STATUS.md` for current shipped state.
+Phase + release docs live in `../z3rno-local/improvements/`, subfoldered by lifecycle stage: `plans/` (original planning), `references/` (`PHASE-*-IMPLEMENTATION.md` + glossary), `changelogs/` (per-release), `operator-notes/` (dated runs + upgrades), `status/` (OPEN-WORK + SHIPPED-STATUS + PHASE-3-DEFERRED-TESTS). Start at `improvements/README.md` for the index or `improvements/status/SHIPPED-STATUS.md` for current shipped state.
 
 ## Middleware Chain (order matters)
 
