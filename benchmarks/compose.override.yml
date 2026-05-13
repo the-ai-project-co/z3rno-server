@@ -1,0 +1,38 @@
+# Canonical benchmark compose override (z3rno-server/benchmarks/).
+#
+# Layered on top of docker-compose.dev.yml at the repo root. The defaults
+# baked here are what a perf benchmark should see — NOT what a production
+# deploy should see:
+#
+#   RATE_LIMIT_ENABLED=false
+#     Production default (PLAN_LIMITS["community"]=1000 req/min/op) is
+#     correct for multi-tenant posture but wrong for a single-process
+#     micro-bench. A c=10 / ~30 ms-recall load blows the bucket in ~3 s;
+#     the SDK's tenacity retry then honours `Retry-After: 60` and silently
+#     rolls 60 s into request elapsed time. The benchmark ends up
+#     measuring the rate limiter, not the engine. The full evidence
+#     trail is in the v0.22.3 RCA writeup
+#     (z3rno-local/benchmarks/V0-22-3-TAIL-OUTLIER-RCA-2026-05-13/).
+#
+#   RECALL_COUNT_BATCH_ENABLED=true
+#     v0.22.0 batched recall_count write-back. -19 to -25% p99 at 20-30
+#     concurrent. Off by default in production; on by default in benches
+#     so we exercise the recall hot-path shape this release ships.
+#
+# The audit-listener service + 60 s beat fallback are already part of
+# docker-compose.dev.yml as of v0.22.2, so this override does not
+# redefine them.
+#
+# Usage:
+#   # From z3rno-server repo root:
+#   docker compose -f docker-compose.dev.yml -f benchmarks/compose.override.yml up -d
+#
+#   # Or copy in place:
+#   cp benchmarks/compose.override.yml docker-compose.override.yml
+#   docker compose up -d
+
+services:
+  server:
+    environment:
+      RATE_LIMIT_ENABLED: "false"
+      RECALL_COUNT_BATCH_ENABLED: "true"
