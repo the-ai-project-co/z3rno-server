@@ -1,4 +1,4 @@
-"""Canonical recall-VECTOR load ramp (z3rno-local/benchmarks/harness/).
+"""Canonical recall-VECTOR load ramp.
 
 Ramps concurrent workers through ``LEVELS``, holding each for
 ``HOLD_S`` seconds, hitting ``POST /v1/memories/recall``. Emits a JSON
@@ -6,14 +6,11 @@ report with per-level ops/sec + latency percentiles.
 
 Lessons baked in from the v0.22.3 RCA:
 
-  * Pre-flight sanity check: if rate limiting looks on AND we'll
-    blow the bucket, abort early with a clear error. The single-process
-    bench is measuring the rate limiter, not the engine.
-  * Separate accounting for HTTP 429s. The Python SDK's tenacity retry
+  * Pre-flight rate-limit-off check (in ``_common.py``).
+  * Separate accounting for HTTP 429s — the Python SDK's tenacity retry
     honours ``Retry-After`` and silently rolls the sleep into request
-    elapsed time, so a healthy-looking p50 can hide a 60 s outlier
-    that's actually rate-limit retry. We count 429s explicitly and
-    report them as `retry_429_count` in the JSON output.
+    elapsed time. We count 429s explicitly and report them as
+    ``retry_429_count`` in the JSON output.
 
 CLI: python load_ramp.py [out.json]
 """
@@ -22,67 +19,18 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import statistics
 import sys
 import time
 from pathlib import Path
-from urllib.request import Request, urlopen
 
 import httpx
+from _common import AGENT, API_KEY, BASE, check_rate_limit_off, summarize
 from z3rno import AsyncZ3rnoClient
 
-BASE = os.environ.get("Z3RNO_BENCH_BASE", "http://localhost:8000")
-API_KEY = os.environ.get("Z3RNO_BENCH_KEY", "z3rno_sk_user_test")
-AGENT = os.environ.get(
-    "Z3RNO_BENCH_AGENT", "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
-)
 HOLD_S = int(os.environ.get("Z3RNO_BENCH_HOLD_S", "10"))
 LEVELS = [int(x) for x in os.environ.get(
     "Z3RNO_BENCH_LEVELS", "1,2,5,10,15,20,25,30"
 ).split(",")]
-
-
-def percentile(values: list[float], p: float) -> float:
-    if not values:
-        return 0.0
-    values = sorted(values)
-    k = max(0, min(len(values) - 1, int(len(values) * p / 100)))
-    return values[k]
-
-
-def _check_rate_limit_off() -> None:
-    """Pre-flight: refuse to run if the server reports rate limiting on.
-
-    The bench is meant to measure the engine — measuring the rate limiter
-    is what tripped the V0-22-3 RCA. Override with
-    ``Z3RNO_BENCH_ALLOW_RATE_LIMIT=1`` if you really want to bench against
-    a rate-limited server (e.g. to measure retry-after behaviour).
-    """
-    try:
-        req = Request(
-            f"{BASE}/v1/limits",
-            headers={"Authorization": f"Bearer {API_KEY}"},
-        )
-        with urlopen(req, timeout=2) as r:
-            body = json.loads(r.read())
-    except Exception:
-        return  # endpoint missing on older servers — warn only
-    if not body.get("rate_limit_enabled"):
-        return
-    per_min = body.get("rate_limit_per_minute", "?")
-    print(
-        f"FATAL: server reports rate_limit_enabled=true "
-        f"(rate_limit_per_minute={per_min}). This bench will hit the "
-        "bucket within seconds at c>=5 and the SDK will silently absorb "
-        "the Retry-After: 60 sleep into request elapsed time. Set "
-        "RATE_LIMIT_ENABLED=false on the server, or layer the harness "
-        "compose override (benchmarks/harness/compose.override.yml). "
-        "Override with Z3RNO_BENCH_ALLOW_RATE_LIMIT=1 if you really "
-        "want to measure the rate limiter.",
-        file=sys.stderr,
-    )
-    if not os.environ.get("Z3RNO_BENCH_ALLOW_RATE_LIMIT"):
-        sys.exit(2)
 
 
 async def _worker(client: AsyncZ3rnoClient, end: float) -> tuple[list[float], int]:
@@ -122,17 +70,13 @@ async def hold(concurrency: int) -> dict:
         "ops_fail": fail,
         "retry_429_count": retries_429,
         "ops_per_sec": round(len(ok) / HOLD_S, 1),
-        "p50_ms": round(percentile(ok, 50), 1),
-        "p95_ms": round(percentile(ok, 95), 1),
-        "p99_ms": round(percentile(ok, 99), 1),
-        "mean_ms": round(statistics.mean(ok), 1) if ok else 0.0,
-        "max_ms": round(max(ok), 1) if ok else 0.0,
         "fail_pct": round(100 * fail / len(flat), 2) if flat else 0.0,
+        **summarize(ok),
     }
 
 
 async def main() -> None:
-    _check_rate_limit_off()
+    check_rate_limit_off()
     results = []
     for c in LEVELS:
         print(f"  hold {c}x for {HOLD_S}s...", file=sys.stderr)
@@ -159,7 +103,6 @@ async def main() -> None:
     raw_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("load_ramp.json")
     raw_path.write_text(json.dumps(out, indent=2))
 
-    # Table
     print()
     print("| Concurrent | ops/sec | p50 (ms) | p95 (ms) | p99 (ms) | max (ms) | 429 | fail % |")
     print("|---:|---:|---:|---:|---:|---:|---:|---:|")
