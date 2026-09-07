@@ -1,8 +1,13 @@
 # z3rno-server
 
-[![PyPI](https://img.shields.io/pypi/v/z3rno-server)](https://pypi.org/project/z3rno-server/)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![CI](https://github.com/the-ai-project-co/z3rno-server/actions/workflows/ci.yml/badge.svg)](https://github.com/the-ai-project-co/z3rno-server/actions/workflows/ci.yml)
+<p>
+  <a href="https://pypi.org/project/z3rno-server/"><img src="https://img.shields.io/pypi/v/z3rno-server" alt="PyPI"></a>
+  <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0"></a>
+  <a href="https://github.com/the-ai-project-co/z3rno-server/actions/workflows/ci.yml"><img src="https://github.com/the-ai-project-co/z3rno-server/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/the-ai-project-co/z3rno-server/releases"><img src="https://img.shields.io/github/downloads/the-ai-project-co/z3rno-server/total" alt="GitHub downloads"></a>
+  <a href="https://pepy.tech/project/z3rno-server"><img src="https://static.pepy.tech/badge/z3rno-server" alt="PyPI downloads"></a>
+  <a href="https://github.com/orgs/the-ai-project-co/packages/container/package/z3rno-server"><img src="https://ghcr-badge.elias.eu.org/the-ai-project-co/z3rno-server/latest_tag?label=ghcr%20image" alt="GHCR image"></a>
+</p>
 
 FastAPI REST API server for Z3rno -- wraps z3rno-core engine functions as HTTP endpoints.
 
